@@ -315,7 +315,7 @@ print(p)
 
 
 
-
+bumbum
 
 Let's first divide the dataset into training and test sets.
 
