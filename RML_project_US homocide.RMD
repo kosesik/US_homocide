@@ -18,7 +18,7 @@ path_work<-"Z:/moje/moje/studia QPE/przedmioty/II semestr/Responsible ML/projekt
 path_home<-"C:/Users/t420/Desktop/moje/studia QPE UW/przedmioty/II semestr/Responsible ML/projekt/US homocide"
 path_home_2<-"C:/Users/Krzysztof_ASUS/Desktop/moje/studia QPE/przedmioty/II semestr/Responsible Machine Learning/project/US homocide"
 
-location<-1
+location<-3
 
 setwd(switch(location,path_work,path_home,path_home_2))
 
@@ -310,26 +310,53 @@ print(p)
 
 Let's first divide the dataset into training and test sets.
 
-
 ```{r}
 temp<-sample.split(data$Crime_Solved,SplitRatio = 0.7)
 
-train_set<-data[temp,]
-test_set<-data[-temp,]
+train_set<-subset(data, temp==TRUE)
+test_set<-subset(data, temp==FALSE)
 
 ```
 
 Let's see if proportions of Yes/No in target variable are maintained.
 
 ```{r}
-round(prop.table(table(train_set$Crime_Solved)),4)
-round(prop.table(table(test_set$Crime_Solved)),4)
+round(prop.table(table(data$Crime_Solved)),4)*100
+round(prop.table(table(train_set$Crime_Solved)),4)*100
+round(prop.table(table(test_set$Crime_Solved)),4)*100
 
 ```
 
+Proportions of binary responses of target variable have been maintained in the training and testing sets. Now, we need to deal with high imbalance of the training dataset. To that end, SMOTE algoritm will be applied.
+
+
+```{r}
+
+levs<-sapply(train_set,levels)
+
+train_set<-sapply(train_set,as.numeric)
+
+train_set<-data.frame(train_set)
+
+temp<-sum(train_set$Crime_Solved==2)/sum(train_set$Crime_Solved==1)
+
+train_set<-SMOTE(train_set[,-3],train_set[,3],K = 3,dup_size = temp)
+train_set<-train_set$data
+table(train_set$class)
+
+ggplot(train_set,aes(x=class))+geom_bar(fill="sky blue")+labs(x="Crime_Solved")+scale_y_continuous(labels=comma)+theme_bw()
+
+train_set$class<-as.numeric(train_set$class)
+train_set<-round(train_set)
+
+
+train_set$Agency_Type<-as.factor(train_set$Agency_Type)
+
+train_set<-lapply(train_set, as.factor)
 
 
 
+```
 
 
 
@@ -360,9 +387,7 @@ In case of such a highly imbalanced data, we need to employ mechanism to constru
 
 ```{r}
 
-
-data_adj<-data[complete.cases(data),]
-data_adj<-sapply(data_adj,as.numeric)
+data_adj<-sapply(data,as.numeric)
 
 class(data_adj)
 data_adj<-data.frame(data_adj)
