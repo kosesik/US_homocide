@@ -1,0 +1,420 @@
+---
+title: "RML_project_US homocide"
+author: "Krzysztof Osesik"
+date: "30 04 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##
+
+```{r, echo=FALSE}
+
+# Setting up working directory
+path_work<-"Z:/moje/moje/studia QPE/przedmioty/II semestr/Responsible ML/projekt/US homocide"
+path_home<-"C:/Users/t420/Desktop/moje/studia QPE UW/przedmioty/II semestr/Responsible ML/projekt/US homocide"
+path_home_2<-"C:/Users/Krzysztof_ASUS/Desktop/moje/studia QPE/przedmioty/II semestr/Responsible Machine Learning/project/US homocide"
+
+location<-1
+
+setwd(switch(location,path_work,path_home,path_home_2))
+
+rm(list=ls())
+```
+
+## Problem Context
+
+The Murder Accountability Project is the most complete database of homicides in the United States currently available. This dataset includes murders from the FBI's Supplementary Homicide Report from 1976 to the present and Freedom of Information Act data on more than 22,000 homicides that were not reported to the Justice Department. This dataset includes the age, race, sex, ethnicity of victims and perpetrators, in addition to the relationship between the victim and perpetrator and weapon used.
+
+## Objectives
+
+The goal of the analysis is to determine whether fairness of the model is maintained. To that end, we analyze whether identified protected variables affect the outcome of the crime investigation. In the data set victim's age, race and sex were identified as protected variables and whether a crime was solved or not was identified as target variable. In addition, explainability analysis was also conducted.
+
+To sum up, the following are the objectives of the project:
+
+1) Exploratory Data Analysis
+2) Construction of predictive model
+3) Assessment of model's fairness
+4) Explainability analysis
+
+
+## Data
+
+The data set consists of nearly 640,000 crime cases. They are described by 24 variables, for example City, State, Year, Crime Type, Victim's Age, Perpetrator's Age and Weapon Used. 
+
+Crime Solved was chosen as target variable. This variable defines whether a crime was solved or not. The remaining of 23 variables was chosen to be independent variables ( not all of which are relevant).
+
+The data is however highly imbalanced, as we have only 0,1% of cases where crime remained unsolved. This will need to be dealt with in the process of the analysis.
+
+
+Loading required libraries.
+
+```{r, results="hide",, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(corrplot)
+library(tidyselect)
+library(scales)
+library(dgof)
+library(caTools)
+library(pROC)
+library(dummy)
+library(smotefamily)
+library(officer)
+```
+
+Loading the data.
+
+```{r, results="hide",, message=FALSE, warning=FALSE}
+# data<-read_csv(file = "database.csv")
+
+# save(data,file="data.R")
+load("data.R")
+data_org<-data
+
+```
+
+Let's take an initial glance at the data.
+
+```{r}
+dim(data)
+View(data)
+summary(data)
+str(data)
+```
+
+Column names have spaces. Let's replace them with "_".
+
+
+```{r, echo=TRUE, results="hide"}
+temp<-colnames(data)
+
+temp<-gsub(" ","_",temp)
+
+colnames(data)<-temp
+
+
+```
+
+Let's check if there are any empty values.
+
+
+```{r}
+
+temp<-sum(sapply(data,function(x) (length(x)==length(data$'Record_ID'))))-ncol(data)
+
+if( temp==0){
+  
+  cat("There are no empty cells in the dataset and every column is equal in length.")
+  
+} else{
+  
+  cat("There are",temp,"column(s) in the dataset with empty cells.")
+}
+```
+
+
+Now, let's check if there are any missing values.
+
+
+```{r}
+
+temp<-sum(sapply(data,function(x) (is.na(x))))
+
+if( temp==0){
+  
+  cat("There are no missing values in the dataset")
+  
+} else{
+  
+  cat("There are",temp,"missing value(s) in the dataset.")
+}
+```
+Since there is only 1 missing values in the dataset we can remove it from the data.
+
+```{r}
+
+data<-data[complete.cases(data),]
+
+```
+
+Let's remove variables which will not be used in the analysis.
+
+```{r}
+temp<-c("Record_ID" ,"Agency_Code","Agency_Name", "City", "State", "Year","Month","Incident","Record_Source", "Victim_Ethnicity", "Perpetrator_Ethnicity")
+
+data<-data[,-(which(colnames(data) %in% temp))]
+
+
+```
+
+Let's focus on cases with perpetrators over 18 years old and remove cases with Victim_age equal to 998.
+
+```{r}
+
+data<-subset(data,Perpetrator_Age>=15 & Victim_Age!=998)
+
+```
+
+
+
+Let's turn character variables into factor.
+
+
+```{r}
+
+data<-data %>% 
+ mutate_if(is.character,as.factor) 
+
+```
+
+Let's attach the data.
+
+```{r}
+attach(data)
+```
+
+
+## Exploratory Data Analysis
+
+Let's look at the histogram of only two numerical variables in the dataset.
+
+```{r}
+
+hist(Victim_Age)
+hist(Perpetrator_Age)
+
+```
+
+For ease of analysis, let's now turn numerical variables into categrical ones.
+
+```{r}
+
+data$Victim_Age<-cut(data$Victim_Age,breaks=c(0,15,20,25,30,seq(35,65,10),100), labels = c("0-15","15-20","20-25","25-30","30-35","35-45","45-55","55-65","65+"),right = FALSE)
+
+data$Perpetrator_Age<-cut(data$Perpetrator_Age,breaks=c(seq(15,65,10),100), labels = c("15-25","25-35","35-45","45-55","55-65","65+"),right=FALSE)
+
+data$Victim_Count<-as.factor(data$Victim_Count)
+
+data$Perpetrator_Count<-as.factor(data$Perpetrator_Count)
+
+
+```
+
+
+Let's look at some distributions of categorical variables.
+
+
+```{r}
+
+temp<-colnames(data)
+
+# ppt<-read_pptx("RML_project.pptx")
+
+# ppt %>% officer::layout_properties()
+
+for (i in (temp)){
+  
+p<-data %>% 
+  select(as.name(i)) %>% 
+  ggplot(aes(x=eval(parse(text=i)),y=..count../sum(..count..)))+geom_bar(fill="sky blue",position = "dodge")+
+  labs(y="Frequency", x=i)+
+  theme_bw()+
+  geom_text(aes(label=round(..count../sum(..count..),3)*100,y=(..count../sum(..count..))),stat="count",vjust=-.1)+
+    theme(axis.text.x = element_text(angle=90))
+
+print(p)
+
+# 
+# ppt<-ppt %>% 
+#   add_slide(master="Content",layout="Wykres") %>% 
+#   ph_with(value=p,location=ph_location_label(ph_label="Plot"))
+   
+  
+}
+
+
+
+```
+
+
+
+Now, take a look at conditional distributions for protected categorical variables, i.e. Victim_Sex,  Victim_Race and Victim_Age. 
+
+```{r}
+
+
+  p<-data %>% 
+  select(Crime_Solved,Victim_Sex) %>% 
+  ggplot(aes(x=Victim_Sex, group=Crime_Solved, y=(..prop..), fill=factor(..x..)))+geom_bar(position ="dodge")+
+    facet_grid(~Crime_Solved)+
+    geom_text(aes(y=(..prop..),label=scales::percent(round(..prop..,3))),stat="count", vjust=-.5)+
+    scale_y_continuous(labels=scales::percent, limits=c(0,0.9))+
+    labs(y="Percent", fill=Victim_Sex)+
+    scale_fill_discrete(labels = levels(Victim_Sex))+
+    theme_bw()+
+    theme(axis.text.x = element_text(angle = 90))
+
+
+print(p)
+
+# ppt<-ppt %>% 
+#   add_slide(master="Content",layout="Wykres") %>% 
+#   ph_with(value=p,location=ph_location_label(ph_label="Plot"))
+   
+  
+  p<-data %>% 
+  select(Crime_Solved,Victim_Race) %>% 
+  ggplot(aes(x=Victim_Race, group=Crime_Solved, y=(..prop..), fill=factor(..x..)))+geom_bar(position ="dodge")+
+    facet_grid(~Crime_Solved)+
+    geom_text(aes(y=(..prop..),label=scales::percent(round(..prop..,3))),stat="count", vjust=-.5)+
+    scale_y_continuous(labels=scales::percent, limits=c(0,0.6))+
+    labs(y="Percent", fill=Victim_Race)+
+    scale_fill_discrete(labels = levels(Victim_Race))+
+    theme_bw()+
+    theme(axis.text.x = element_text(angle = 90))
+   
+   print(p)
+# 
+# ppt<-ppt %>% 
+#   add_slide(master="Content",layout="Wykres") %>% 
+#   ph_with(value=p,location=ph_location_label(ph_label="Plot"))
+   
+   
+   p<-data %>% 
+  select(Crime_Solved,Victim_Age) %>% 
+  ggplot(aes(x=Victim_Age, group=Crime_Solved, y=(..prop..), fill=factor(..x..)))+geom_bar(position ="dodge")+
+    facet_grid(~Crime_Solved)+
+    geom_text(aes(y=(..prop..),label=scales::percent(round(..prop..,3))),stat="count", vjust=-.5)+
+    scale_y_continuous(labels=scales::percent, limits=c(0,0.4))+
+    labs(y="Percent", fill=Victim_Age)+
+    scale_fill_discrete(labels = levels(Victim_Age))+
+    theme_bw()+
+    theme(axis.text.x = element_text(angle = 90))
+      
+      print(p)
+
+# ppt<-ppt %>% 
+#   add_slide(master="Content",layout="Wykres") %>% 
+#   ph_with(value=p,location=ph_location_label(ph_label="Plot"))
+      
+      
+     # print(ppt,target="RML_project.pptx") 
+ 
+```
+
+
+## MODELLING
+
+Let's first divide the dataset into training and test sets.
+
+
+```{r}
+temp<-sample.split(data$Crime_Solved,SplitRatio = 0.7)
+
+train_set<-data[temp,]
+test_set<-data[-temp,]
+
+```
+
+Let's see if proportions of Yes/No in target variable are maintained.
+
+```{r}
+round(prop.table(table(train_set$Crime_Solved)),4)
+round(prop.table(table(test_set$Crime_Solved)),4)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+The data is however highly imbalanced. Unsolved cases are only 1/1000 of the dataset.
+
+```{r}
+
+round(prop.table(table(Crime_Solved)),3)*100
+
+temp<-sum(Crime_Solved=="Yes")/nrow(data)
+
+cat("The number of cases with Crime_Solved variable as 'No' is equal to", temp)
+```
+
+
+In case of such a highly imbalanced data, we need to employ mechanism to construct a more balanced dataset to ensure reliability of the model results. We will use "SMOTE" algorithm to that end.
+
+```{r}
+
+
+data_adj<-data[complete.cases(data),]
+data_adj<-sapply(data_adj,as.numeric)
+
+class(data_adj)
+data_adj<-data.frame(data_adj)
+class(data_adj)
+
+data_adj$Crime_Solved<-data_adj$Crime_Solved-1
+
+temp<-sum(data_adj$Crime_Solved==1)/sum(data_adj$Crime_Solved==0)
+
+data_adj<-SMOTE(data_adj[,-3],data_adj[,3],K = 3,dup_size = temp)
+data_adj<-data_adj$data
+table(data_adj$class)
+
+ggplot(data_adj,aes(x=class))+geom_bar(fill="sky blue")+labs(x="Crime_Solved")+scale_y_continuous(labels=comma)+theme_bw()
+
+
+
+```
+
+
+##  PREDICTIVE MODELLING
+
+
+Let's make sure the balance of train and test sets is maintained.
+
+```{r}
+prop.table(table(train_set$class))
+prop.table(table(test_set$class))
+
+```
+
+
+
+## LOGISTIC REGRESSION
+
+``{r}
+model_log<-train(class~.,data=train_set, method="glm", family="binomial")
+
+summary(model_log)
+
+
+
+model_log2<-glm(class~., data=train_set, family="binomial")
+
+``
+
+
+**  data_adj jest numeric a powinna być z powrotem factor, tak zeby logistic analysis ładnie wyszłą   **
+
+
+
+
+
+
+
