@@ -7,6 +7,7 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+Sys.setenv(LANGUAGE='en')
 ```
 
 ##
@@ -18,7 +19,7 @@ path_work<-"Z:/moje/moje/studia QPE/przedmioty/II semestr/Responsible ML/projekt
 path_home<-"C:/Users/t420/Desktop/moje/studia QPE UW/przedmioty/II semestr/Responsible ML/projekt/US homocide"
 path_home_2<-"C:/Users/Krzysztof_ASUS/Desktop/moje/studia QPE/przedmioty/II semestr/Responsible Machine Learning/project/US homocide"
 
-location<-1
+location<-2
 
 setwd(switch(location,path_work,path_home,path_home_2))
 
@@ -55,6 +56,7 @@ The data is however highly imbalanced, as we have only 0,1% of cases where crime
 Loading required libraries.
 
 ```{r, results="hide",, message=FALSE, warning=FALSE}
+library(MASS)
 library(tidyverse)
 library(corrplot)
 library(tidyselect)
@@ -66,7 +68,6 @@ library(dummy)
 library(smotefamily)
 library(officer)
 library(ROSE)
-library(MASS)
 library(pscl)
 library(caret)
 ```
@@ -74,10 +75,10 @@ library(caret)
 Loading the data.
 
 ```{r, results="hide",, message=FALSE, warning=FALSE}
-# data<-read_csv(file = "database.csv")
+data<-read_csv(file = "database.csv")
 
-# save(data,file="data.R")
-load("data.R")
+save(data,file="data.R")
+# load("data.R")
 data_org<-data
 
 ```
@@ -194,7 +195,7 @@ hist(Perpetrator_Age)
 
 ```
 
-For ease of analysis, let's now turn numerical variables into categrical ones.
+For ease of analysis, let's now turn numerical variables into categorical ones.
 
 ```{r}
 
@@ -411,7 +412,6 @@ model_log2<-glm(class~., data=train_set, family="binomial")
 
 
 **  data_adj jest numeric a powinna być z powrotem factor, tak zeby logistic analysis ładnie wyszłą   **
-
 
 
 
