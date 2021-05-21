@@ -18,12 +18,14 @@ path_work<-"Z:/moje/moje/studia QPE/przedmioty/II semestr/Responsible ML/projekt
 path_home<-"C:/Users/t420/Desktop/moje/studia QPE UW/przedmioty/II semestr/Responsible ML/projekt/US homocide"
 path_home_2<-"C:/Users/Krzysztof_ASUS/Desktop/moje/studia QPE/przedmioty/II semestr/Responsible Machine Learning/project/US homocide"
 
-location<-3
+location<-1
 
 setwd(switch(location,path_work,path_home,path_home_2))
 
 rm(list=ls())
 ```
+
+# Introduction
 
 ## Problem Context
 
@@ -59,10 +61,14 @@ library(tidyselect)
 library(scales)
 library(dgof)
 library(caTools)
-library(pROC)
+library(ROCR)
 library(dummy)
 library(smotefamily)
 library(officer)
+library(ROSE)
+library(MASS)
+library(pscl)
+library(caret)
 ```
 
 Loading the data.
@@ -177,7 +183,7 @@ attach(data)
 ```
 
 
-## Exploratory Data Analysis
+# Exploratory Data Analysis
 
 Let's look at the histogram of only two numerical variables in the dataset.
 
@@ -306,7 +312,7 @@ print(p)
 ```
 
 
-## MODELLING
+# MODELLING
 
 Let's first divide the dataset into training and test sets.
 
@@ -327,116 +333,84 @@ round(prop.table(table(test_set$Crime_Solved)),4)*100
 
 ```
 
-Proportions of binary responses of target variable have been maintained in the training and testing sets. Now, we need to deal with high imbalance of the training dataset. To that end, SMOTE algoritm will be applied.
+Proportions of binary responses of target variable have been maintained in the training and testing sets. Now, we need to deal with high imbalance of the training dataset. To that end, we will apply both oversampling and undersampling methods. This method was found to provide better results than oversampling and/or undersampling on a stand-alone basis.
 
 
 ```{r}
 
-levs<-sapply(train_set,levels)
+train_set_balanced<-ovun.sample(Crime_Solved~., data=train_set,method="both",p=0.5) #N=2*length(train_set$Crime_Solved[train_set$Crime_Solved=="Yes"]))
 
-train_set<-sapply(train_set,as.numeric)
+train_set_balanced<-train_set_balanced$data
 
-train_set<-data.frame(train_set)
-
-temp<-sum(train_set$Crime_Solved==2)/sum(train_set$Crime_Solved==1)
-
-train_set<-SMOTE(train_set[,-3],train_set[,3],K = 3,dup_size = temp)
-train_set<-train_set$data
-table(train_set$class)
-
-ggplot(train_set,aes(x=class))+geom_bar(fill="sky blue")+labs(x="Crime_Solved")+scale_y_continuous(labels=comma)+theme_bw()
-
-train_set$class<-as.numeric(train_set$class)
-train_set<-round(train_set)
-
-
-train_set$Agency_Type<-as.factor(train_set$Agency_Type)
-
-train_set<-lapply(train_set, as.factor)
-
+table(train_set_balanced$Crime_Solved)
 
 
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-The data is however highly imbalanced. Unsolved cases are only 1/1000 of the dataset.
-
-```{r}
-
-round(prop.table(table(Crime_Solved)),3)*100
-
-temp<-sum(Crime_Solved=="Yes")/nrow(data)
-
-cat("The number of cases with Crime_Solved variable as 'No' is equal to", temp)
-```
-
-
-In case of such a highly imbalanced data, we need to employ mechanism to construct a more balanced dataset to ensure reliability of the model results. We will use "SMOTE" algorithm to that end.
-
-```{r}
-
-data_adj<-sapply(data,as.numeric)
-
-class(data_adj)
-data_adj<-data.frame(data_adj)
-class(data_adj)
-
-data_adj$Crime_Solved<-data_adj$Crime_Solved-1
-
-temp<-sum(data_adj$Crime_Solved==1)/sum(data_adj$Crime_Solved==0)
-
-data_adj<-SMOTE(data_adj[,-3],data_adj[,3],K = 3,dup_size = temp)
-data_adj<-data_adj$data
-table(data_adj$class)
-
-ggplot(data_adj,aes(x=class))+geom_bar(fill="sky blue")+labs(x="Crime_Solved")+scale_y_continuous(labels=comma)+theme_bw()
-
-
-
-```
-
-
-##  PREDICTIVE MODELLING
-
-
-Let's make sure the balance of train and test sets is maintained.
-
-```{r}
-prop.table(table(train_set$class))
-prop.table(table(test_set$class))
-
-```
-
 
 
 ## LOGISTIC REGRESSION
 
-``{r}
-model_log<-train(class~.,data=train_set, method="glm", family="binomial")
+Let's start predictive modelling. First, logistic regression model will be applied.
+
+```{r}
+train_set_balanced$Crime_Solved<-ifelse(train_set_balanced$Crime_Solved=="Yes",1,0)
+
+train_set_balanced$Crime_Solved<-factor(train_set_balanced$Crime_Solved, levels=c(0,1))
+
+model_log<-glm(Crime_Solved~.,data=train_set_balanced, family=binomial (link="logit"))
 
 summary(model_log)
+
+
+pR2(model_log)["McFadden"]
+
+vars_imp<-varImp(model_log)
+
+vars_type<-rownames(vars_imp)
+
+vars_imp<-cbind(vars_type,vars_imp)
+
+rownames(vars_imp)<-NULL
+
+head(vars_imp[order(vars_imp$Overall,decreasing = TRUE),],10)
+
+
+anova(model_log, test="Chisq")
+
+
+test_set$Crime_Solved<-ifelse(test_set$Crime_Solved=="Yes",1,0)
+
+fitted_results<-predict(model_log, test_set[,-3],type="response")
+fitted_results<-ifelse(fitted_results>=0.5,1,0)
+
+accu<-mean(fitted_results==test_set$Crime_Solved)
+
+
+# ROCR curve
+
+pr<-prediction(fitted_results,test_set$Crime_Solved)
+prf<-performance(pr, measure="tpr",x.measure="fpr")
+plot(prf)
+
+
+auc <- performance(pr, measure = "auc")
+auc <- auc@y.values[[1]]
+auc
+
+
+
+
+step_model_log<-model_log %>% 
+  stepAIC(trace=TRUE)
 
 
 
 model_log2<-glm(class~., data=train_set, family="binomial")
 
-``
+```
 
 
 **  data_adj jest numeric a powinna być z powrotem factor, tak zeby logistic analysis ładnie wyszłą   **
-
 
 
 
