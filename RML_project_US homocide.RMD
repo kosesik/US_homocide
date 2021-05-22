@@ -448,8 +448,8 @@ Proportions of binary responses of target variable have been maintained in the t
 
 ```{r}
 
-train_set_balanced<-ovun.sample(Crime_Solved~., data=train_set,method="under",
-                                N=2*length(train_set$Crime_Solved[train_set$Crime_Solved=="No"]))
+train_set_balanced<-ovun.sample(Crime_Solved~., data=train_set,method="both",p=0.5)
+        #                        N=2*length(train_set$Crime_Solved[train_set$Crime_Solved=="No"]))
                                 # p=0.5 
 
 train_set_balanced<-train_set_balanced$data
