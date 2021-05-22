@@ -63,13 +63,14 @@ library(tidyselect)
 library(scales)
 library(dgof)
 library(caTools)
-library(ROCR)
+library(pROC)
 library(dummy)
 library(smotefamily)
 library(officer)
 library(ROSE)
 library(pscl)
 library(caret)
+library(OptimalCutpoints)
 ```
 
 Loading the data.
@@ -333,6 +334,48 @@ Now, take a look at conditional distributions for protected categorical variable
 
 print(p)
 
+
+
+
+  p<-data %>% 
+  select(Crime_Solved,Perpetrator_Sex) %>% 
+  ggplot(aes(x=Perpetrator_Sex, group=Crime_Solved, y=(..prop..), fill=factor(..x..)))+geom_bar(position ="dodge")+
+    facet_grid(~Crime_Solved)+
+    geom_text(aes(y=(..prop..),label=scales::percent(round(..prop..,3))),stat="count", vjust=-.5)+
+    scale_y_continuous(labels=scales::percent, limits=c(0,1))+
+    labs(y="Percent", fill=Perpetrator_Sex)+
+    scale_fill_discrete(labels = levels(Perpetrator_Sex))+
+    theme_bw()+
+    theme(axis.text.x = element_text(angle = 90))
+
+
+print(p)
+
+
+
+  p<-data %>% 
+  select(Crime_Solved,Relationship) %>% 
+  ggplot(aes(x=Relationship, group=Crime_Solved, y=(..prop..), fill=factor(..x..)))+geom_bar(position ="dodge")+
+    facet_grid(~Crime_Solved)+
+    geom_text(aes(y=(..prop..),label=scales::percent(round(..prop..,3))),stat="count", vjust=-.5)+
+    scale_y_continuous(labels=scales::percent, limits=c(0,1))+
+    labs(y="Percent", fill=Relationship)+
+    scale_fill_discrete(labels = levels(Relationship))+
+    theme_bw()+
+    theme(axis.text.x = element_text(angle = 90))
+
+
+print(p)
+
+
+
+
+
+
+
+
+
+
 # ppt<-ppt %>% 
 #   add_slide(master="Content",layout="Wykres") %>% 
 #   ph_with(value=p,location=ph_location_label(ph_label="Plot"))
@@ -405,7 +448,9 @@ Proportions of binary responses of target variable have been maintained in the t
 
 ```{r}
 
-train_set_balanced<-ovun.sample(Crime_Solved~., data=train_set,method="both",p=0.5) #N=2*length(train_set$Crime_Solved[train_set$Crime_Solved=="Yes"]))
+train_set_balanced<-ovun.sample(Crime_Solved~., data=train_set,method="under",
+                                N=2*length(train_set$Crime_Solved[train_set$Crime_Solved=="No"]))
+                                # p=0.5 
 
 train_set_balanced<-train_set_balanced$data
 
@@ -424,9 +469,14 @@ train_set_balanced$Crime_Solved<-ifelse(train_set_balanced$Crime_Solved=="Yes",1
 
 train_set_balanced$Crime_Solved<-factor(train_set_balanced$Crime_Solved, levels=c(0,1))
 
-model_log<-glm(Crime_Solved~.,data=train_set_balanced, family=binomial (link="logit"))
+model_log<-bayesglm(Crime_Solved~.,data=train_set_balanced, family=binomial (link="logit"))
 
 summary(model_log)
+
+model_log2<-bayesglm(Crime_Solved~.,data=train_set_balanced, family=binomial (link="logit"))
+
+summary(model_log2)
+
 
 
 pR2(model_log)["McFadden"]
@@ -447,32 +497,58 @@ anova(model_log, test="Chisq")
 
 test_set$Crime_Solved<-ifelse(test_set$Crime_Solved=="Yes",1,0)
 
-fitted_results<-predict(model_log, test_set[,-1],type="response")
-fitted_results<-ifelse(fitted_results>=0.5,1,0)
+fitted_results<-predict(model_log, test_set,type="response")
+fitted_results<-ifelse(fitted_results>=0.1,1,0)
+
+length(fitted_results)-sum(fitted_results)
+length(fitted_results[fitted_results<0.000000001])
+
+fitted_results[which(fitted_results<0.001)]
+
+
+confusionMatrix(as.factor(fitted_results),as.factor(test_set$Crime_Solved))
+
 
 accu<-mean(fitted_results==test_set$Crime_Solved)
 accu
 
 # ROCR curve
 
-pr<-prediction(fitted_results,test_set$Crime_Solved)
-prf<-performance(pr, measure="tpr",x.measure="fpr")
-plot(prf)
-
-
-auc <- performance(pr, measure = "auc")
-auc <- auc@y.values[[1]]
-auc
+roc<-roc(fitted_results,test_set$Crime_Solved)
+cat("Area under curve :\n", auc(roc))
+cat("\n")
+plot(roc)
 
 
 
 
-step_model_log<-model_log %>% 
-  stepAIC(trace=TRUE)
+# opt_cp_df<-data.frame(pred=fitted_results, observed=test_set$Crime_Solved)
+# 
+# opt_cp<-optimal.cutpoints(X="pred", status="observed",methods = "Youden", data=opt_cp_df, tag.healthy = "1")
+# 
+# summary(opt_cp)
+# 
+# plot(opt_cp)
+
+
+```
 
 
 
-model_log2<-glm(class~., data=train_set, family="binomial")
+
+```{r}
+
+ctrl <- trainControl(method = "repeatedcv", number = 10, savePredictions = TRUE)
+mod_fit <- train(Crime_Solved~.,  data=data, method="glm", family="binomial",
+                 trControl = ctrl, tuneLength = 5)
+pred <- predict(mod_fit, newdata=test_set)
+pred<-ifelse(pred=="Yes",1,0)
+confusionMatrix(data=as.factor(pred), as.factor(test_set$Crime_Solved))
+
+roc<-roc(pred,test_set$Crime_Solved)
+cat("Area under curve :\n", auc(roc))
+cat("\n")
+plot(roc)
 
 ```
 
