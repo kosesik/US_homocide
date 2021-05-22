@@ -75,10 +75,10 @@ library(caret)
 Loading the data.
 
 ```{r, results="hide",, message=FALSE, warning=FALSE}
-data<-read_csv(file = "database.csv")
+# data<-read_csv(file = "database.csv")
 
-save(data,file="data.R")
-# load("data.R")
+# save(data,file="data.R")
+load("data.R")
 data_org<-data
 
 ```
@@ -150,7 +150,8 @@ data<-data[complete.cases(data),]
 Let's remove variables which will not be used in the analysis.
 
 ```{r}
-temp<-c("Record_ID" ,"Agency_Code","Agency_Name", "City", "State", "Year","Month","Incident","Record_Source", "Victim_Ethnicity", "Perpetrator_Ethnicity")
+temp<-c("Record_ID" ,"Agency_Code","Agency_Name", "City", "State", "Year","Month","Incident","Record_Source", "Victim_Ethnicity", "Perpetrator_Ethnicity",
+        "Agency_Type", "Crime_Type","Victim_Count","Perpetrator_Count")
 
 data<-data[,-(which(colnames(data) %in% temp))]
 
@@ -190,22 +191,87 @@ Let's look at the histogram of only two numerical variables in the dataset.
 
 ```{r}
 
-hist(Victim_Age)
-hist(Perpetrator_Age)
+data %>% 
+  select(Victim_Age, Crime_Solved) %>% 
+  ggplot(aes(x=Victim_Age,fill=Crime_Solved))+geom_density(alpha=0.4)+theme_bw()
+
+data %>% 
+  select(Perpetrator_Age, Crime_Solved) %>% 
+  ggplot(aes(x=Perpetrator_Age,fill=Crime_Solved))+geom_density(alpha=0.4)+theme_bw()
+
+
 
 ```
 
 For ease of analysis, let's now turn numerical variables into categorical ones.
 
+Let's group categorical variables into fewer levels.
+
 ```{r}
 
-data$Victim_Age<-cut(data$Victim_Age,breaks=c(0,15,20,25,30,seq(35,65,10),100), labels = c("0-15","15-20","20-25","25-30","30-35","35-45","45-55","55-65","65+"),right = FALSE)
+detach(data)
 
-data$Perpetrator_Age<-cut(data$Perpetrator_Age,breaks=c(seq(15,65,10),100), labels = c("15-25","25-35","35-45","45-55","55-65","65+"),right=FALSE)
+data$Weapon<-as.character(data$Weapon)
+levs<-levels(data$Relationship)
+data$Relationship<-as.character(data$Relationship)
 
-data$Victim_Count<-as.factor(data$Victim_Count)
 
-data$Perpetrator_Count<-as.factor(data$Perpetrator_Count)
+temp<-c("Firearm","Gun","Handgun","Rifle","Shotgun")
+
+data$Weapon[which(data$Weapon %in% temp)]<-"Gun"
+
+temp<-c("Strangulation","Suffocation")
+
+data$Weapon[which(data$Weapon %in% temp)]<-"Suffocation"
+
+# data$Weapon<-droplevels(data$Weapon,exclude = anyNA(levels(data$Weapon)))
+
+
+temp<-levs[c(1,14,19)]
+
+data$Relationship[which(data$Relationship %in% temp)]<-"Acquaintance"
+
+temp<-levs[c(4,20)]
+
+data$Relationship[which(data$Relationship %in% temp)]<-"Siblings"
+
+temp<-levs[c(8,9)]
+
+data$Relationship[which(data$Relationship %in% temp)]<-"Workplace"
+
+temp<-levs[c(22:25)]
+
+data$Relationship[which(data$Relationship %in% temp)]<-"Step- relations"
+
+temp<-levs[c(2,3,15)]
+
+data$Relationship[which(data$Relationship %in% temp)]<-"Boyfriend/ Girlfriend"
+
+temp<-levs[c(5,10,16)]
+
+data$Relationship[which(data$Relationship %in% temp)]<-"Husband"
+
+temp<-levs[c(6,11,28)]
+
+data$Relationship[which(data$Relationship %in% temp)]<-"Wife"
+
+# data$Relationship<-droplevels(data$Weapon,exclude = anyNA(levels(data$Relationship)))
+
+data$Weapon<-as.factor(data$Weapon)
+data$Relationship<-as.factor(data$Relationship)
+rm(levs)
+
+attach(data)
+
+
+#
+# data$Victim_Age<-cut(data$Victim_Age,breaks=c(0,15,20,25,30,seq(35,65,10),100), labels = c("0-15","15-20","20-25","25-30","30-35","35-45","45-55","55-65","65+"),right = FALSE)
+#
+# data$Perpetrator_Age<-cut(data$Perpetrator_Age,breaks=c(seq(15,65,10),100), labels = c("15-25","25-35","35-45","45-55","55-65","65+"),right=FALSE)
+#
+# data$Victim_Count<-as.factor(data$Victim_Count)
+#
+# data$Perpetrator_Count<-as.factor(data$Perpetrator_Count)
 
 
 ```
@@ -290,18 +356,18 @@ print(p)
 #   ph_with(value=p,location=ph_location_label(ph_label="Plot"))
    
    
-   p<-data %>% 
-  select(Crime_Solved,Victim_Age) %>% 
-  ggplot(aes(x=Victim_Age, group=Crime_Solved, y=(..prop..), fill=factor(..x..)))+geom_bar(position ="dodge")+
-    facet_grid(~Crime_Solved)+
-    geom_text(aes(y=(..prop..),label=scales::percent(round(..prop..,3))),stat="count", vjust=-.5)+
-    scale_y_continuous(labels=scales::percent, limits=c(0,0.4))+
-    labs(y="Percent", fill=Victim_Age)+
-    scale_fill_discrete(labels = levels(Victim_Age))+
-    theme_bw()+
-    theme(axis.text.x = element_text(angle = 90))
-      
-      print(p)
+  #  p<-data %>% 
+  # select(Crime_Solved,Victim_Age) %>% 
+  # ggplot(aes(x=Victim_Age, group=Crime_Solved, y=(..prop..), fill=factor(..x..)))+geom_bar(position ="dodge")+
+  #   facet_grid(~Crime_Solved)+
+  #   geom_text(aes(y=(..prop..),label=scales::percent(round(..prop..,3))),stat="count", vjust=-.5)+
+  #   scale_y_continuous(labels=scales::percent, limits=c(0,0.4))+
+  #   labs(y="Percent", fill=Victim_Age)+
+  #   scale_fill_discrete(labels = levels(Victim_Age))+
+  #   theme_bw()+
+  #   theme(axis.text.x = element_text(angle = 90))
+  #     
+  #     print(p)
 
 # ppt<-ppt %>% 
 #   add_slide(master="Content",layout="Wykres") %>% 
@@ -381,11 +447,11 @@ anova(model_log, test="Chisq")
 
 test_set$Crime_Solved<-ifelse(test_set$Crime_Solved=="Yes",1,0)
 
-fitted_results<-predict(model_log, test_set[,-3],type="response")
+fitted_results<-predict(model_log, test_set[,-1],type="response")
 fitted_results<-ifelse(fitted_results>=0.5,1,0)
 
 accu<-mean(fitted_results==test_set$Crime_Solved)
-
+accu
 
 # ROCR curve
 
