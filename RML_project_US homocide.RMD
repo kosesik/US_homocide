@@ -420,6 +420,66 @@ print(p)
      # print(ppt,target="RML_project.pptx") 
  
 ```
+# FEATURE ENGINEERING
+
+```{r}
+temp<-c("Crime_Solved", "Victim_Age","Perpetrator_Age")
+
+temp<-colnames(data[,-which(colnames(data) %in% temp)])
+
+df_levs<-data.frame()
+ 
+for ( i in temp){
+  
+  levs<-data %>% 
+    select(as.name(i)) %>% 
+    unique()%>%
+    pull()%>%
+    as.character()
+    
+  
+  for ( j in levs){
+    
+  data_adj<-subset(data,eval(as.name(i))==j)
+      
+    
+  not_solved<-length(data_adj$Crime_Solved[data_adj$Crime_Solved=="No"])
+  solved<-length(data_adj$Crime_Solved[data_adj$Crime_Solved=="Yes"])
+  
+  df_levs<-rbind(df_levs,cbind(i, j,not_solved,solved))
+  
+  
+  }
+  
+  
+  
+}
+rm(data_adj)
+
+df_levs$not_solved<-as.numeric(df_levs$not_solved)
+df_levs$solved<-as.numeric(df_levs$solved)
+
+
+df_levs<-df_levs%>%
+  dplyr::mutate(ratio=not_solved/(solved+not_solved))%>%
+  arrange(desc(ratio))
+
+df_levs
+
+data_1<-data
+data<-data_1
+
+data<-subset(data,subset=Perpetrator_Sex!="Unknown")
+
+
+
+
+
+
+```
+
+
+
 
 
 # MODELLING
@@ -469,7 +529,7 @@ train_set_balanced$Crime_Solved<-ifelse(train_set_balanced$Crime_Solved=="Yes",1
 
 train_set_balanced$Crime_Solved<-factor(train_set_balanced$Crime_Solved, levels=c(0,1))
 
-model_log<-bayesglm(Crime_Solved~.,data=train_set_balanced, family=binomial (link="logit"))
+model_log<-glm(Crime_Solved~.,data=train_set_balanced, family=binomial (link="logit"))
 
 summary(model_log)
 
@@ -498,7 +558,7 @@ anova(model_log, test="Chisq")
 test_set$Crime_Solved<-ifelse(test_set$Crime_Solved=="Yes",1,0)
 
 fitted_results<-predict(model_log, test_set,type="response")
-fitted_results<-ifelse(fitted_results>=0.1,1,0)
+fitted_results<-ifelse(fitted_results>=0.5,1,0)
 
 length(fitted_results)-sum(fitted_results)
 length(fitted_results[fitted_results<0.000000001])
