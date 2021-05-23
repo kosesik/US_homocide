@@ -71,6 +71,7 @@ library(ROSE)
 library(pscl)
 library(caret)
 library(OptimalCutpoints)
+library(randomForest)
 ```
 
 Loading the data.
@@ -581,7 +582,7 @@ anova(model_log, test="Chisq")
 
 test_set$Crime_Solved<-ifelse(test_set$Crime_Solved=="Yes",1,0)
 
-fitted_results<-predict(model_log, test_set,type="response")
+fitted_results<-predict(model_log, test_set[-2],type="response")
 fitted_results<-ifelse(fitted_results>=0.5,1,0)
 
 length(fitted_results)-sum(fitted_results)
@@ -590,7 +591,7 @@ length(fitted_results[fitted_results<0.000000001])
 fitted_results[which(fitted_results<0.001)]
 
 
-confusionMatrix(as.factor(fitted_results),as.factor(test_set$Crime_Solved))
+confusionMatrix(as.factor(fitted_results),as.factor(ifelse(test_set$Crime_Solved=="Yes",1,0)))
 
 
 accu<-mean(fitted_results==test_set$Crime_Solved)
@@ -625,16 +626,35 @@ plot(roc)
 ctrl <- trainControl(method = "repeatedcv", number = 10, savePredictions = TRUE)
 mod_fit <- train(Crime_Solved~.,  data=data, method="glm", family="binomial",
                  trControl = ctrl, tuneLength = 5)
-pred <- predict(mod_fit, newdata=test_set)
+pred <- predict(mod_fit, newdata=test_set[-2])
 pred<-ifelse(pred=="Yes",1,0)
-confusionMatrix(data=as.factor(pred), as.factor(test_set$Crime_Solved))
+confusionMatrix(data=as.factor(pred), as.factor(ifelse(test_set$Crime_Solved=="Yes",1,0)))
 
-roc<-roc(pred,test_set$Crime_Solved)
+roc<-roc(pred,ifelse(test_set$Crime_Solved=="Yes",1,0))
 cat("Area under curve :\n", auc(roc))
 cat("\n")
 plot(roc)
 
 ```
+
+##Random Forest
+
+```{r}
+
+model_rf<-randomForest(x=train_set_balanced[-2],
+                       y=train_set$Crime_Solved,
+                       ntree=10)
+pred_rf<-predict(model_rf,newdata=test_set[-2])
+
+confusionMatrix(pred_rf,test_set$Crime_Solved)
+
+roc<-roc(ifelse(pred_rf=="Yes",1,0),ifelse(test_set$Crime_Solved=="Yes",1,0))
+cat("Area under curve :\n", auc(roc))
+cat("\n")
+plot(roc)
+
+```
+
 
 
 **  data_adj jest numeric a powinna być z powrotem factor, tak zeby logistic analysis ładnie wyszłą   **
