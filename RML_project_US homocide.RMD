@@ -19,7 +19,7 @@ path_work<-"Z:/moje/moje/studia QPE/przedmioty/II semestr/Responsible ML/projekt
 path_home<-"C:/Users/t420/Desktop/moje/studia QPE UW/przedmioty/II semestr/Responsible ML/projekt/US homocide"
 path_home_2<-"C:/Users/Krzysztof_ASUS/Desktop/moje/studia QPE/przedmioty/II semestr/Responsible Machine Learning/project/US homocide"
 
-location<-2
+location<-1
 
 setwd(switch(location,path_work,path_home,path_home_2))
 
@@ -72,6 +72,8 @@ library(pscl)
 library(caret)
 library(OptimalCutpoints)
 library(randomForest)
+library(arm)
+library(e1071)
 ```
 
 Loading the data.
@@ -556,6 +558,8 @@ train_set_balanced$Crime_Solved<-factor(train_set_balanced$Crime_Solved, levels=
 
 model_log<-glm(Crime_Solved~.,data=train_set_balanced, family=binomial (link="logit"))
 
+str(train_set_balanced)
+
 summary(model_log)
 
 model_log2<-bayesglm(Crime_Solved~.,data=train_set_balanced, family=binomial (link="logit"))
@@ -591,7 +595,7 @@ length(fitted_results[fitted_results<0.000000001])
 fitted_results[which(fitted_results<0.001)]
 
 
-confusionMatrix(as.factor(fitted_results),as.factor(ifelse(test_set$Crime_Solved=="Yes",1,0)))
+confusionMatrix(as.factor(fitted_results),as.factor(test_set$Crime_Solved))
 
 
 accu<-mean(fitted_results==test_set$Crime_Solved)
@@ -624,13 +628,12 @@ plot(roc)
 ```{r}
 
 ctrl <- trainControl(method = "repeatedcv", number = 10, savePredictions = TRUE)
-mod_fit <- train(Crime_Solved~.,  data=data, method="glm", family="binomial",
+mod_fit <- train(Crime_Solved~.,  data=train_set_balanced, method="glm", family="binomial",
                  trControl = ctrl, tuneLength = 5)
 pred <- predict(mod_fit, newdata=test_set[-2])
-pred<-ifelse(pred=="Yes",1,0)
-confusionMatrix(data=as.factor(pred), as.factor(ifelse(test_set$Crime_Solved=="Yes",1,0)))
+confusionMatrix(data=as.factor(pred), as.factor(test_set$Crime_Solved))
 
-roc<-roc(pred,ifelse(test_set$Crime_Solved=="Yes",1,0))
+roc<-roc(pred,test_set$Crime_Solved)
 cat("Area under curve :\n", auc(roc))
 cat("\n")
 plot(roc)
@@ -641,24 +644,74 @@ plot(roc)
 
 ```{r}
 
-model_rf<-randomForest(x=train_set_balanced[-2],
-                       y=train_set$Crime_Solved,
-                       ntree=10)
+# model_rf<-randomForest(x=train_set_balanced[-2],
+#                        y=train_set_balanced$Crime_Solved,
+#                        ntree=10)
+
+model_rf<-randomForest(Crime_Solved~.,data=train_set_balanced, ntree=100 )
+
+
 pred_rf<-predict(model_rf,newdata=test_set[-2])
+# pred_rf<-ifelse(pred_rf=="Yes",1,0)
 
-confusionMatrix(pred_rf,test_set$Crime_Solved)
+confusionMatrix(as.factor(pred_rf),as.factor(test_set$Crime_Solved))
 
-roc<-roc(ifelse(pred_rf=="Yes",1,0),ifelse(test_set$Crime_Solved=="Yes",1,0))
+roc<-roc(pred_rf,test_set$Crime_Solved)
 cat("Area under curve :\n", auc(roc))
 cat("\n")
 plot(roc)
+
+
+model_rf
+
+
+obb_error_df<-data.frame(
+  Trees=rep(1:nrow(model_rf$err.rate), times=3),
+  Type=rep(c("OOB","0","1"), each=nrow(model_rf$err.rate)),
+  Error=c(model_rf$err.rate[,"OOB"],
+          model_rf$err.rate[,"0"],
+          model_rf$err.rate[,"1"]))
+
+
+ggplot(data=obb_error_df, aes(x=Trees, y=Error))+geom_line(aes(color=Type))+theme_bw()
+
+
+varImp<-importance(model_rf)
+
+varImpPlot(model_rf)
+
+
+oob_values<-vector(length=10)
+
+for (i in 1:(ncol(data)-1)){
+  
+  temp_model_rf<-randomForest(Crime_Solved~.,data=train_set_balanced, ntree=30,mtry=i)
+  
+  oob_values[i]<-temp_model_rf$err.rate[nrow(temp_model_rf$err.rate),1]
+  
+}
 
 ```
 
 
 
-**  data_adj jest numeric a powinna być z powrotem factor, tak zeby logistic analysis ładnie wyszłą   **
+## SVM
 
+
+```{r}
+
+
+model_svm<-svm(Crime_Solved~.,data=train_set_balanced, type="C-classification", kernel="polynomial")
+
+
+
+
+
+
+```
+
+
+**  data_adj jest numeric a powinna być z powrotem factor, tak zeby logistic analysis ładnie wyszłą   **
 
 
 
