@@ -19,7 +19,7 @@ path_work<-"Z:/moje/moje/studia QPE/przedmioty/II semestr/Responsible ML/projekt
 path_home<-"C:/Users/t420/Desktop/moje/studia QPE UW/przedmioty/II semestr/Responsible ML/projekt/US homocide"
 path_home_2<-"C:/Users/Krzysztof_ASUS/Desktop/moje/studia QPE/przedmioty/II semestr/Responsible Machine Learning/project/US homocide"
 
-location<-1
+location<-2
 
 setwd(switch(location,path_work,path_home,path_home_2))
 
@@ -74,6 +74,8 @@ library(OptimalCutpoints)
 library(randomForest)
 library(arm)
 library(e1071)
+library(DescTools)
+library(reshape2)
 ```
 
 Loading the data.
@@ -166,7 +168,7 @@ Let's focus on cases with perpetrators over 18 years old and remove cases with V
 
 ```{r}
 
-data<-subset(data,Victim_Age!=998)
+data<-subset(data,Victim_Age>=18 & Victim_Age!=998)
 
 ```
 
@@ -211,7 +213,55 @@ For ease of analysis, let's now turn numerical variables into categorical ones.
 
 Let's group categorical variables into fewer levels.
 
+# FEATURE ENGINEERING
+
 ```{r}
+# temp<-c("Crime_Solved", "Victim_Age")
+# 
+# temp<-colnames(data[,-which(colnames(data) %in% temp)])
+# 
+# df_levs<-data.frame()
+#  
+# for ( i in temp){
+#   
+#   levs<-data %>% 
+#     select(as.name(i)) %>% 
+#     unique()%>%
+#     pull()%>%
+#     as.character()
+#     
+#   
+#   for ( j in levs){
+#     
+#   data_adj<-subset(data,eval(as.name(i))==j)
+#       
+#     
+#   not_solved<-length(data_adj$Crime_Solved[data_adj$Crime_Solved=="No"])
+#   solved<-length(data_adj$Crime_Solved[data_adj$Crime_Solved=="Yes"])
+#   
+#   df_levs<-rbind(df_levs,cbind(i, j,not_solved,solved))
+#   
+#   
+#   }
+#   
+#   
+#   
+# }
+# rm(data_adj)
+# 
+# df_levs$not_solved<-as.numeric(df_levs$not_solved)
+# df_levs$solved<-as.numeric(df_levs$solved)
+# 
+# 
+# df_levs<-df_levs%>%
+#   dplyr::mutate(ratio=not_solved/(solved+not_solved))%>%
+#   arrange(desc(ratio))
+# 
+# df_levs
+# 
+# 
+data<-subset(data,subset=Victim_Sex!="Unknown" & Victim_Race!="Unknown")
+
 
 detach(data)
 
@@ -269,7 +319,7 @@ attach(data)
 
 
 #
-data$Victim_Age<-cut(data$Victim_Age,breaks=c(0,15,25,35,50,70,100), labels = c("0-15","15-25","25-35","35-50","50-70","70+"),right = FALSE)
+data$Victim_Age<-cut(data$Victim_Age,breaks=c(18,30,45,60,75,100), labels = c("18-30","30-45","45-60","60-75","75+"),right = FALSE)
 
 # data$Perpetrator_Age<-cut(data$Perpetrator_Age,breaks=c(seq(15,65,10),100), labels = c("15-25","25-35","35-45","45-55","55-65","65+"),right=FALSE)
 #
@@ -284,7 +334,7 @@ data$Victim_Age<-cut(data$Victim_Age,breaks=c(0,15,25,35,50,70,100), labels = c(
 Let's look at some distributions of categorical variables.
 
 
-```{r}
+#```{r}
 
 temp<-colnames(data)
 
@@ -320,7 +370,7 @@ print(p)
 
 Now, take a look at conditional distributions for protected categorical variables, i.e. Victim_Sex,  Victim_Race and Victim_Age. 
 
-```{r}
+#```{r}
 
 
   p<-data %>% 
@@ -447,65 +497,34 @@ print(p)
      # print(ppt,target="RML_project.pptx") 
  
 ```
-# FEATURE ENGINEERING
+
+Let's take a look at correlation (association) between categorical variables in the dataset. I will use Thiel's uncertainty coefficient to that end.
 
 ```{r}
-temp<-c("Crime_Solved", "Victim_Age","Perpetrator_Age")
 
-temp<-colnames(data[,-which(colnames(data) %in% temp)])
+cor_df<-matrix(0,nrow=ncol(data), ncol=ncol(data), dimnames=list(colnames(data),colnames(data)))
 
-df_levs<-data.frame()
- 
-for ( i in temp){
+for (i in 1:ncol(data)){
   
-  levs<-data %>% 
-    select(as.name(i)) %>% 
-    unique()%>%
-    pull()%>%
-    as.character()
+  for (j in 1:ncol(data)){
     
-  
-  for ( j in levs){
+    temp<-UncertCoef(table(data[[i]],data[[j]]), direction = "column")
     
-  data_adj<-subset(data,eval(as.name(i))==j)
-      
+    cor_df[i,j]<-temp
     
-  not_solved<-length(data_adj$Crime_Solved[data_adj$Crime_Solved=="No"])
-  solved<-length(data_adj$Crime_Solved[data_adj$Crime_Solved=="Yes"])
-  
-  df_levs<-rbind(df_levs,cbind(i, j,not_solved,solved))
-  
-  
   }
   
-  
-  
 }
-rm(data_adj)
 
-df_levs$not_solved<-as.numeric(df_levs$not_solved)
-df_levs$solved<-as.numeric(df_levs$solved)
+cor_df<-round(cor_df, 2)
+cor_df<-melt(cor_df)
 
-
-df_levs<-df_levs%>%
-  dplyr::mutate(ratio=not_solved/(solved+not_solved))%>%
-  arrange(desc(ratio))
-
-df_levs
-
-# data_1<-data
-# data<-data_1
-# 
-data<-subset(data,subset=Victim_Sex!="Unknown" & Victim_Race!="Unknown")
-
-
-
-
+ggplot(cor_df,aes(x=Var1,y=Var2,fill=value))+geom_tile()+labs(title = "Uncertainity Coefficient for categorical variables")+geom_text(aes(Var1, Var2, label = value), color = "black", size = 4)+scale_fill_gradient(low="white", high="blue") 
 
 
 ```
 
-
+The variables are not correlated.
 
 
 
@@ -558,8 +577,6 @@ train_set_balanced$Crime_Solved<-factor(train_set_balanced$Crime_Solved, levels=
 
 model_log<-glm(Crime_Solved~.,data=train_set_balanced, family=binomial (link="logit"))
 
-str(train_set_balanced)
-
 summary(model_log)
 
 model_log2<-bayesglm(Crime_Solved~.,data=train_set_balanced, family=binomial (link="logit"))
@@ -586,32 +603,20 @@ anova(model_log, test="Chisq")
 
 test_set$Crime_Solved<-ifelse(test_set$Crime_Solved=="Yes",1,0)
 
-fitted_results<-predict(model_log, test_set[-2],type="response")
-fitted_results<-ifelse(fitted_results>=0.5,1,0)
+pred_log<-predict(model_log, test_set[-2],type="response")
+pred_log_bin<-ifelse(pred_log>=0.5,1,0)
 
-length(fitted_results)-sum(fitted_results)
-length(fitted_results[fitted_results<0.000000001])
-
-fitted_results[which(fitted_results<0.001)]
-
-
-confusionMatrix(as.factor(fitted_results),as.factor(test_set$Crime_Solved))
-
-
-accu<-mean(fitted_results==test_set$Crime_Solved)
-accu
+confusionMatrix(as.factor(pred_log_bin),as.factor(test_set$Crime_Solved))
 
 # ROCR curve
 
-roc<-roc(fitted_results,test_set$Crime_Solved)
-cat("Area under curve :\n", auc(roc))
-cat("\n")
-plot(roc)
+roc<-roc(test_set$Crime_Solved~pred_log,plot=TRUE,print.auc=TRUE,col="green",lwd =4,legacy.axes=TRUE,main="ROC Curve - Logistic Regression")
 
 
 
 
-# opt_cp_df<-data.frame(pred=fitted_results, observed=test_set$Crime_Solved)
+
+# opt_cp_df<-data.frame(pred=pred_log, observed=test_set$Crime_Solved)
 # 
 # opt_cp<-optimal.cutpoints(X="pred", status="observed",methods = "Youden", data=opt_cp_df, tag.healthy = "1")
 # 
@@ -628,16 +633,18 @@ plot(roc)
 ```{r}
 
 ctrl <- trainControl(method = "repeatedcv", number = 10, savePredictions = TRUE)
-mod_fit <- train(Crime_Solved~.,  data=train_set_balanced, method="glm", family="binomial",
+mod_log_cv <- train(Crime_Solved~.,  data=train_set_balanced, method="glm", family="binomial",
                  trControl = ctrl, tuneLength = 5)
-pred <- predict(mod_fit, newdata=test_set[-2])
-confusionMatrix(data=as.factor(pred), as.factor(test_set$Crime_Solved))
 
-roc<-roc(pred,test_set$Crime_Solved)
-cat("Area under curve :\n", auc(roc))
-cat("\n")
-plot(roc)
+pred_log_cv <- predict(mod_log_cv, newdata=test_set[-2], type="response")
 
+pred_log_cv_bin<-ifelse(pred_log>=0.5,1,0)
+
+confusionMatrix(as.factor(pred_log__cv_bin),as.factor(test_set$Crime_Solved))
+
+# ROCR curve
+
+roc<-roc(test_set$Crime_Solved~pred_log_cv,plot=TRUE,print.auc=TRUE,col="green",lwd =4,legacy.axes=TRUE,main="ROC Curve - Logistic Regression Cross Validation")
 ```
 
 ##Random Forest
@@ -646,20 +653,18 @@ plot(roc)
 
 # model_rf<-randomForest(x=train_set_balanced[-2],
 #                        y=train_set_balanced$Crime_Solved,
-#                        ntree=10)
+#                        ntree=100)
 
-model_rf<-randomForest(Crime_Solved~.,data=train_set_balanced, ntree=100 )
+model_rf<-randomForest(Crime_Solved~.,data=train_set_balanced, ntree=30 )
 
 
-pred_rf<-predict(model_rf,newdata=test_set[-2])
-# pred_rf<-ifelse(pred_rf=="Yes",1,0)
+pred_rf<-predict(model_rf,newdata=test_set[-2],type="prob")
+
+pred_rf_bin<-ifelse(pred_rf[,2]>0.5,1,0)
 
 confusionMatrix(as.factor(pred_rf),as.factor(test_set$Crime_Solved))
 
-roc<-roc(pred_rf,test_set$Crime_Solved)
-cat("Area under curve :\n", auc(roc))
-cat("\n")
-plot(roc)
+roc<-roc(test_set$Crime_Solved~pred_rf[,2],plot=TRUE,print.auc=TRUE,col="green",lwd =4,legacy.axes=TRUE,main="ROC Curve - Random Forest")
 
 
 model_rf
@@ -712,7 +717,6 @@ model_svm<-svm(Crime_Solved~.,data=train_set_balanced, type="C-classification", 
 
 
 **  data_adj jest numeric a powinna być z powrotem factor, tak zeby logistic analysis ładnie wyszłą   **
-
 
 
 
