@@ -91,12 +91,12 @@ data_org<-data
 
 Let's take an initial glance at the data.
 
-```{r}
-dim(data)
-View(data)
-summary(data)
-str(data)
-```
+# ```{r}
+# dim(data)
+# View(data)
+# summary(data)
+# str(data)
+# ```
 
 Column names have spaces. Let's replace them with "_".
 
@@ -110,6 +110,19 @@ colnames(data)<-temp
 
 
 ```
+
+The dataset is for all U.S. states for years 1980-2014. However, we are only interested in a subset of that, namely in results for five states of Louisina,Alabama, Mississipi, Georgia and South Carolina (so-called US Deep South States) in the 1980s decade (1980-1989). These five states were known to be have been rather unfriendly to minorities, especially black minorities in those and previous years. 
+
+```{r}
+data<-subset(data, data$State %in% c("Louisiana","Alabama","Mississipi", "Georgia","South Carolina") & between(data$Year,1980, 1989))
+
+
+```
+
+
+
+
+
 
 Let's check if there are any empty values.
 
@@ -277,6 +290,8 @@ data$Weapon[which(data$Weapon %in% temp)]<-"Gun"
 temp<-c("Strangulation","Suffocation")
 
 data$Weapon[which(data$Weapon %in% temp)]<-"Suffocation"
+
+data$Weapon<-as.factor(data$Weapon)
 
 # data$Weapon<-droplevels(data$Weapon,exclude = anyNA(levels(data$Weapon)))
 
@@ -636,15 +651,15 @@ ctrl <- trainControl(method = "repeatedcv", number = 10, savePredictions = TRUE)
 mod_log_cv <- train(Crime_Solved~.,  data=train_set_balanced, method="glm", family="binomial",
                  trControl = ctrl, tuneLength = 5)
 
-pred_log_cv <- predict(mod_log_cv, newdata=test_set[-2], type="response")
+pred_log_cv <- predict(mod_log_cv, newdata=test_set[-2], type="prob")
 
 pred_log_cv_bin<-ifelse(pred_log>=0.5,1,0)
 
-confusionMatrix(as.factor(pred_log__cv_bin),as.factor(test_set$Crime_Solved))
+confusionMatrix(as.factor(pred_log_cv_bin),as.factor(test_set$Crime_Solved))
 
 # ROCR curve
 
-roc<-roc(test_set$Crime_Solved~pred_log_cv,plot=TRUE,print.auc=TRUE,col="green",lwd =4,legacy.axes=TRUE,main="ROC Curve - Logistic Regression Cross Validation")
+roc<-roc(test_set$Crime_Solved~pred_log_cv[,2],plot=TRUE,print.auc=TRUE,col="green",lwd =4,legacy.axes=TRUE,main="ROC Curve - Logistic Regression Cross Validation")
 ```
 
 ##Random Forest
@@ -662,7 +677,7 @@ pred_rf<-predict(model_rf,newdata=test_set[-2],type="prob")
 
 pred_rf_bin<-ifelse(pred_rf[,2]>0.5,1,0)
 
-confusionMatrix(as.factor(pred_rf),as.factor(test_set$Crime_Solved))
+confusionMatrix(as.factor(pred_rf_bin),as.factor(test_set$Crime_Solved))
 
 roc<-roc(test_set$Crime_Solved~pred_rf[,2],plot=TRUE,print.auc=TRUE,col="green",lwd =4,legacy.axes=TRUE,main="ROC Curve - Random Forest")
 
@@ -706,10 +721,18 @@ for (i in 1:(ncol(data)-1)){
 ```{r}
 
 
-model_svm<-svm(Crime_Solved~.,data=train_set_balanced, type="C-classification", kernel="polynomial")
+model_svm<-svm(Crime_Solved~.,data=train_set_balanced)
+
+summary(model_svm)
+
+pred_svm<-predict(model_svm,newdata=test_set[-2])
+
+confusionMatrix(as.factor(pred_svm),as.factor(test_set$Crime_Solved))
 
 
-
+model_svm_tuned<-tune.svm(Crime_Solved~.,data=train_set_balanced, 
+                          gamma=10^(-6:1),
+                          cost=10^(-10:10))
 
 
 
