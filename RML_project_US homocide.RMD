@@ -8,6 +8,7 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 Sys.setenv(LANGUAGE='en')
+set.seed(123)
 ```
 
 ##
@@ -76,6 +77,10 @@ library(arm)
 library(e1071)
 library(DescTools)
 library(reshape2)
+library(lime)
+library(DALEX)
+library(vip)
+library(pdp)
 ```
 
 Loading the data.
@@ -273,7 +278,12 @@ Let's group categorical variables into fewer levels.
 # df_levs
 # 
 # 
+
 data<-subset(data,subset=Victim_Sex!="Unknown" & Victim_Race!="Unknown")
+
+
+data$Victim_Sex<-droplevels(data$Victim_Sex,exclude = anyNA(levels(data$Victim_Sex)))
+data$Victim_Race<-droplevels(data$Victim_Race,exclude = anyNA(levels(data$Victim_Race)))
 
 
 detach(data)
@@ -293,7 +303,6 @@ data$Weapon[which(data$Weapon %in% temp)]<-"Suffocation"
 
 data$Weapon<-as.factor(data$Weapon)
 
-# data$Weapon<-droplevels(data$Weapon,exclude = anyNA(levels(data$Weapon)))
 
 
 # temp<-levs[c(1,14,19)]
@@ -672,6 +681,9 @@ roc<-roc(test_set$Crime_Solved~pred_log_cv[,2],plot=TRUE,print.auc=TRUE,col="gre
 
 model_rf<-randomForest(Crime_Solved~.,data=train_set_balanced, ntree=30 )
 
+# model_rf<-caret::train(Crime_Solved ~ ., data = train_set_balanced,method = "rf", 
+# trControl = trainControl(method = "repeatedcv", number = 10,repeats = 5, verboseIter = FALSE))
+
 
 pred_rf<-predict(model_rf,newdata=test_set[-2],type="prob")
 
@@ -721,25 +733,143 @@ for (i in 1:(ncol(data)-1)){
 ```{r}
 
 
-model_svm<-svm(Crime_Solved~.,data=train_set_balanced)
+# model_svm<-svm(Crime_Solved~.,data=train_set_balanced)
+# 
+# summary(model_svm)
+# 
+# pred_svm<-predict(model_svm,newdata=test_set[-2])
+# 
+# confusionMatrix(as.factor(pred_svm),as.factor(test_set$Crime_Solved))
+# 
+# 
+# model_svm_tuned<-tune.svm(Crime_Solved~.,data=train_set_balanced, 
+#                           gamma=10^(-6:1),
+#                           cost=10^(-10:10))
+# 
+# 
+# 
+# 
+# 
+# 
+# dummies <- dummyVars(~ ., data=train_set_balanced[,-2])
+# c2 <- predict(dummies, train_set_balanced[,-2])
+# d_training <- as.data.frame(cbind(train_set_balanced[,2], c2))
+# 
+# dummies <- dummyVars(~ ., data=test_set[,-2])
+# c2 <- predict(dummies, test_set[,-2])
+# d_test <- as.data.frame(cbind(test_set[,2], c2))
+# 
+# ### SVM ###
+# 
+# gammalist <- c(0.005,0.01,0.015,0.02,0.025,0.03,0.035,0.04,0.045,0.05)
+# tune.out <- tune.svm(as.factor(V1) ~., data=d_training, 
+#                  kernel='radial', cost=2^(-1:5), gamma = gammalist)
 
-summary(model_svm)
-
-pred_svm<-predict(model_svm,newdata=test_set[-2])
-
-confusionMatrix(as.factor(pred_svm),as.factor(test_set$Crime_Solved))
 
 
-model_svm_tuned<-tune.svm(Crime_Solved~.,data=train_set_balanced, 
-                          gamma=10^(-6:1),
-                          cost=10^(-10:10))
+```
+
+# EXPLAINABILITY  ANALYSIS
+
+For the purpose of explainabaility analysis I will focus on the Random Forest model, as it performs better than logistic regression model in terms of sensitivity, i.e. correctly identifying not solved cases from a subset of not solved cases (TP/ TP +FN). On the other hand, differences in overall accuracy are not considerable.
+
+## VARIABLE IMPORTANCE PLOTS
+
+```{r}
+
+vip(model_rf,geom="point", horizontal = FALSE, size = 1.5) 
+
+
+```
+
+
+
+
+
+
+
+## PARTIAL DEPENDECE PLOTS
+
+
+```{r}
+
+pdp<-function(x){
+  
+temp<-pdp::partial(model_rf, pred.var = x, chull = TRUE)
+autoplot(temp, contour = TRUE)
+  
+  
+}
+
+col_n<-colnames(test_set)[-2]
+
+for (i in seq_along(col_n)){
+  
+print(pdp(col_n[i]))
+  
+}
 
 
 
 ```
 
 
-**  data_adj jest numeric a powinna być z powrotem factor, tak zeby logistic analysis ładnie wyszłą   **
+##LIME
+
+```{r}
+
+model_rf<-as_classifier(model_rf, labels = NULL)
+
+test_set$Crime_Solved<-as.factor(test_set$Crime_Solved)
+test_set$Victim_Count<-as.numeric(test_set$Victim_Count)
+
+
+test_set<-cbind(Id=(1:nrow(test_set)),test_set)
+
+explainer <- lime(train_set_balanced[,-2], model_rf, quantile_bins = FALSE)
+
+set.seed(1235)
+
+d_test<-subset(test_set,test_set$Victim_Race=="Black"& test_set$Victim_Age=="75+"&test_set$Weapon=="Gun"& test_set$Agency_Type=="Sheriff"&test_set$Victim_Sex=="Male")
+
+explanation <- lime::explain(d_test[3:5,-2], explainer,n_labels=1, n_features = 6, n_permutations=100)
+
+
+explanation
+
+
+plot_features(explanation)
+
+
+
+```
+## SHAPLEY VALUES
+
+Now, let's look at an alternative approach, i.e. so-called Shapley values.
+
+```{r}
+
+explain_rf <- DALEX::explain(model = model_rf,  
+                        data = test_set[,-2],
+                           y = test_set$Crime_Solved,
+                        label="Random Forest")
+predict(explain_rf, test_set[3:5,])
+
+
+
+shap <- predict_parts(explainer = explain_rf, 
+                      new_observation = d_test[3,], 
+                                 type = "shap",
+                                    B = 25)
+
+shap
+
+plot(shap)
+
+```
+
+
+
 
 
 
