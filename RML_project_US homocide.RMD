@@ -778,6 +778,34 @@ For the purpose of explainabaility analysis I will focus on the Random Forest mo
 
 ```{r}
 
+explain_rf <- DALEX::explain(model = model_rf,  
+                        data = test_set[,-2],
+                           y = test_set$Crime_Solved,
+                        label="Random Forest")
+
+
+loss_root_mean_square(observed = test_set$Crime_Solved, 
+                   predicted = predict(model_rf, test_set))
+                   
+
+set.seed(123)
+vip_50<-model_parts(explainer = explain_rf, 
+        loss_function = loss_root_mean_square,
+                    B = 10,
+        type="difference")
+
+
+plot(vip_50)
+
+
+
+
+
+
+
+
+
+
 vip(model_rf,geom="point", horizontal = FALSE, size = 1.5) 
 
 
@@ -794,21 +822,52 @@ vip(model_rf,geom="point", horizontal = FALSE, size = 1.5)
 
 ```{r}
 
-pdp<-function(x){
+explain_rf <- DALEX::explain(model = model_rf,  
+                        data = test_set[,-2],
+                           y = test_set$Crime_Solved,
+                        label="Random Forest")
+
+
+pdp_fun<-function(x){
   
-temp<-pdp::partial(model_rf, pred.var = x, chull = TRUE)
-autoplot(temp, contour = TRUE)
   
   
+  pdp_rf<-model_profile(explainer=explain_rf, variables=x,
+                        # groups=,
+                        )
+  
+
 }
 
 col_n<-colnames(test_set)[-2]
 
+
 for (i in seq_along(col_n)){
   
-print(pdp(col_n[i]))
+print(plot(pdp_fun(col_n[i])))
   
 }
+
+
+
+
+
+
+# pdp<-function(x){
+#   
+# temp<-pdp::partial(model_rf, pred.var = x, chull = TRUE, rug=TRUE, plot=TRUE)
+# # autoplot(temp, contour = TRUE)
+#   
+#   
+# }
+# 
+# col_n<-colnames(test_set)[-2]
+# 
+# for (i in seq_along(col_n)){
+#   
+# print(pdp(col_n[i]))
+#   
+# }
 
 
 
