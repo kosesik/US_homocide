@@ -82,6 +82,8 @@ library(DALEX)
 library(vip)
 library(pdp)
 library(fairness)
+library(DALEXtra)
+library(fastshap)
 ```
 
 Loading the data.
@@ -682,7 +684,7 @@ roc<-roc(test_set$Crime_Solved~pred_log_cv[,2],plot=TRUE,print.auc=TRUE,col="gre
 
 model_rf<-randomForest(Crime_Solved~.,data=train_set_balanced, ntree=30 )
 
-# model_rf<-caret::train(Crime_Solved ~ ., data = train_set_balanced,method = "rf", 
+# model_rf<-caret::train(Crime_Solved ~ ., data = train_set_balanced,method = "rf",
 # trControl = trainControl(method = "repeatedcv", number = 10,repeats = 5, verboseIter = FALSE))
 
 
@@ -712,6 +714,8 @@ ggplot(data=obb_error_df, aes(x=Trees, y=Error))+geom_line(aes(color=Type))+them
 varImp<-importance(model_rf)
 
 varImpPlot(model_rf)
+
+plot(varImp(model_rf))
 
 
 oob_values<-vector(length=10)
@@ -784,15 +788,15 @@ explain_rf <- DALEX::explain(model = model_rf,
                         label="Random Forest")
 
 
-loss_root_mean_square(observed = test_set$Crime_Solved, 
-                   predicted = predict(model_rf, test_set))
+# loss_root_mean_square(observed = test_set$Crime_Solved, 
+#                    predicted = predict(model_rf, test_set))
                    
 
 set.seed(123)
 vip_50<-model_parts(explainer = explain_rf, 
-        loss_function = loss_root_mean_square,
-                    B = 10,
-        type="difference")
+        loss_function = loss_one_minus_auc,
+                    B = 30,
+        type="raw")
 
 
 plot(vip_50)
@@ -874,6 +878,7 @@ print(plot(pdp_fun(col_n[i])))
 ```
 
 
+
 ##LIME
 
 ```{r}
@@ -899,6 +904,27 @@ explanation
 
 
 plot_features(explanation)
+
+
+
+
+
+
+explain_rf <- DALEX::explain(model = model_rf,
+                        data = test_set[,-2],
+                           y = test_set$Crime_Solved,
+                        label="Random Forest")
+
+lime <- predict_surrogate(explainer = explain_rf,
+                  new_observation = d_test[3:5,-2],
+                  n_features = 2,
+                  n_permutations = 1000,
+                  type = "lime"
+                  )
+
+as.data.frame(lime)
+
+plot(lime)
 
 
 
