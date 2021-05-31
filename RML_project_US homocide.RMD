@@ -41,8 +41,8 @@ To sum up, the following are the objectives of the project:
 
 1) Exploratory Data Analysis
 2) Construction of predictive model
-3) Assessment of model's fairness
-4) Explainability analysis
+3) Explainability analysis
+4) Assessment of model's fairness
 
 
 ## Data
@@ -51,7 +51,7 @@ The data set consists of nearly 640,000 crime cases. They are described by 24 va
 
 Crime Solved was chosen as target variable. This variable defines whether a crime was solved or not. The remaining of 23 variables was chosen to be independent variables ( not all of which are relevant).
 
-The data is however highly imbalanced, as we have only 0,1% of cases where crime remained unsolved. This will need to be dealt with in the process of the analysis.
+The data is however imbalanced, as we have less than 30% of cases where crime remained unsolved. This will need to be dealt with in the process of the analysis.
 
 
 Loading required libraries.
@@ -99,12 +99,12 @@ data_org<-data
 
 Let's take an initial glance at the data.
 
-# ```{r}
-# dim(data)
-# View(data)
-# summary(data)
-# str(data)
-# ```
+```{r}
+dim(data)
+View(data)
+summary(data)
+str(data)
+```
 
 Column names have spaces. Let's replace them with "_".
 
@@ -126,10 +126,6 @@ data<-subset(data, data$State %in% c("Louisiana","Alabama","Mississipi", "Georgi
 
 
 ```
-
-
-
-
 
 
 Let's check if there are any empty values.
@@ -361,7 +357,7 @@ data$Victim_Age<-cut(data$Victim_Age,breaks=c(18,30,45,60,75,100), labels = c("1
 Let's look at some distributions of categorical variables.
 
 
-#```{r}
+```{r}
 
 temp<-colnames(data)
 
@@ -397,7 +393,7 @@ print(p)
 
 Now, take a look at conditional distributions for protected categorical variables, i.e. Victim_Sex,  Victim_Race and Victim_Age. 
 
-#```{r}
+```{r}
 
 
   p<-data %>% 
@@ -503,18 +499,18 @@ print(p)
 #   ph_with(value=p,location=ph_location_label(ph_label="Plot"))
    
    
-   p<-data %>%
-  select(Crime_Solved,Victim_Age) %>%
-  ggplot(aes(x=Victim_Age, group=Crime_Solved, y=(..prop..), fill=factor(..x..)))+geom_bar(position ="dodge")+
-    facet_grid(~Crime_Solved)+
-    geom_text(aes(y=(..prop..),label=scales::percent(round(..prop..,3))),stat="count", vjust=-.5)+
-    scale_y_continuous(labels=scales::percent, limits=c(0,1))+
-    labs(y="Percent", fill=Victim_Age)+
-    scale_fill_discrete(labels = levels(Victim_Age))+
-    theme_bw()+
-    theme(axis.text.x = element_text(angle = 90))
-
-      print(p)
+  #  p<-data %>%
+  # select(Crime_Solved,Victim_Age) %>%
+  # ggplot(aes(x=Victim_Age, group=Crime_Solved, y=(..prop..), fill=factor(..x..)))+geom_bar(position ="dodge")+
+  #   facet_grid(~Crime_Solved)+
+  #   geom_text(aes(y=(..prop..),label=scales::percent(round(..prop..,3))),stat="count", vjust=-.5)+
+  #   scale_y_continuous(labels=scales::percent, limits=c(0,1))+
+  #   labs(y="Percent", fill=Victim_Age)+
+  #   scale_fill_discrete(labels = levels(Victim_Age))+
+  #   theme_bw()+
+  #   theme(axis.text.x = element_text(angle = 90))
+  # 
+  #     print(p)
 
 # ppt<-ppt %>% 
 #   add_slide(master="Content",layout="Wykres") %>% 
@@ -606,9 +602,9 @@ model_log<-glm(Crime_Solved~.,data=train_set_balanced, family=binomial (link="lo
 
 summary(model_log)
 
-model_log2<-bayesglm(Crime_Solved~.,data=train_set_balanced, family=binomial (link="logit"))
+# model_log2<-bayesglm(Crime_Solved~.,data=train_set_balanced, family=binomial (link="logit"))
 
-summary(model_log2)
+# summary(model_log2)
 
 
 
@@ -654,8 +650,7 @@ roc<-roc(test_set$Crime_Solved~pred_log,plot=TRUE,print.auc=TRUE,col="green",lwd
 
 ```
 
-
-
+Let's look at the results of logistic regression modelling with a use of cross-valdiation.
 
 ```{r}
 
@@ -673,6 +668,9 @@ confusionMatrix(as.factor(pred_log_cv_bin),as.factor(test_set$Crime_Solved))
 
 roc<-roc(test_set$Crime_Solved~pred_log_cv[,2],plot=TRUE,print.auc=TRUE,col="green",lwd =4,legacy.axes=TRUE,main="ROC Curve - Logistic Regression Cross Validation")
 ```
+
+The results with or without the use of cross-validation are identical. Now, let's apply random forest algorithm.
+
 
 ##Random Forest
 
@@ -715,7 +713,7 @@ varImp<-importance(model_rf)
 
 varImpPlot(model_rf)
 
-plot(varImp(model_rf))
+# plot(varImp(model_rf))
 
 
 oob_values<-vector(length=10)
@@ -732,7 +730,7 @@ for (i in 1:(ncol(data)-1)){
 
 
 
-## SVM
+<!-- ## SVM -->
 
 
 ```{r}
@@ -794,7 +792,7 @@ explain_rf <- DALEX::explain(model = model_rf,
 
 set.seed(123)
 vip_50<-model_parts(explainer = explain_rf, 
-        loss_function = loss_one_minus_auc,
+        loss_function = loss_root_mean_square,
                     B = 30,
         type="raw")
 
@@ -810,7 +808,7 @@ plot(vip_50)
 
 
 
-vip(model_rf,geom="point", horizontal = FALSE, size = 1.5) 
+# vip(model_rf,geom="point", horizontal = FALSE, size = 1.5) 
 
 
 ```
@@ -897,7 +895,7 @@ set.seed(123)
 
 d_test<-subset(test_set,test_set$Victim_Race=="Black"& test_set$Victim_Age=="75+"&test_set$Weapon=="Gun"& test_set$Agency_Type=="Sheriff"&test_set$Victim_Sex=="Male")
 
-explanation <- lime::explain(d_test[3:5,-2], explainer,n_labels=1, n_features = 6, n_permutations=100)
+explanation <- lime::explain(d_test[c(3:4,(nrow(d_test)-1):nrow(d_test)),-2], explainer,n_labels=1, n_features = 6, n_permutations=100)
 
 
 explanation
@@ -910,21 +908,21 @@ plot_features(explanation)
 
 
 
-explain_rf <- DALEX::explain(model = model_rf,
-                        data = test_set[,-2],
-                           y = test_set$Crime_Solved,
-                        label="Random Forest")
-
-lime <- predict_surrogate(explainer = explain_rf,
-                  new_observation = d_test[3:5,-2],
-                  n_features = 2,
-                  n_permutations = 1000,
-                  type = "lime"
-                  )
-
-as.data.frame(lime)
-
-plot(lime)
+# explain_rf <- DALEX::explain(model = model_rf,
+#                         data = test_set[,-2],
+#                            y = test_set$Crime_Solved,
+#                         label="Random Forest")
+# 
+# lime <- predict_surrogate(explainer = explain_rf,
+#                   new_observation = d_test[3:5,-2],
+#                   n_features = 2,
+#                   n_permutations = 1000,
+#                   type = "lime"
+#                   )
+# 
+# as.data.frame(lime)
+# 
+# plot(lime)
 
 
 
@@ -1095,5 +1093,5 @@ eq_odds_age
 
 
 
-https://kozodoi.me/r/fairness/packages/2020/05/01/fairness-tutorial.html
+
 
