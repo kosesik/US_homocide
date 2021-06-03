@@ -736,37 +736,60 @@ for (i in 1:(ncol(data)-1)){
 ```{r}
 
 
-# model_svm<-svm(Crime_Solved~.,data=train_set_balanced)
-# 
-# summary(model_svm)
-# 
-# pred_svm<-predict(model_svm,newdata=test_set[-2])
-# 
-# confusionMatrix(as.factor(pred_svm),as.factor(test_set$Crime_Solved))
-# 
-# 
-# model_svm_tuned<-tune.svm(Crime_Solved~.,data=train_set_balanced, 
-#                           gamma=10^(-6:1),
-#                           cost=10^(-10:10))
-# 
-# 
-# 
-# 
-# 
-# 
-# dummies <- dummyVars(~ ., data=train_set_balanced[,-2])
-# c2 <- predict(dummies, train_set_balanced[,-2])
-# d_training <- as.data.frame(cbind(train_set_balanced[,2], c2))
-# 
-# dummies <- dummyVars(~ ., data=test_set[,-2])
-# c2 <- predict(dummies, test_set[,-2])
-# d_test <- as.data.frame(cbind(test_set[,2], c2))
-# 
-# ### SVM ###
-# 
-# gammalist <- c(0.005,0.01,0.015,0.02,0.025,0.03,0.035,0.04,0.045,0.05)
-# tune.out <- tune.svm(as.factor(V1) ~., data=d_training, 
-#                  kernel='radial', cost=2^(-1:5), gamma = gammalist)
+model_svm<-svm(Crime_Solved~.,data=train_set_balanced, kernel="radial",
+               gamma=50^(-1),
+               cost=10,
+               type="C-classification",
+               scale=TRUE)
+
+
+model_svm_tuned<-tune(svm,Crime_Solved~.,data=train_set_balanced,
+                      kernel="linear",
+                      ranges=list(cost=c(0.001,0.01,0.1,1,5,10,100)))
+
+
+model_svm_linera<-svm(Crime_Solved~.,
+                      data=train_set_balanced,
+                      kernel="sigmoid", gamma=0.1, cost=0.1, scale=FALSE)
+
+mo
+summary(model_svm)
+
+pred_svm<-predict(model_svm,newdata=test_set[-2])
+pred_svm_linear<-predict(model_svm_linera,newdata=test_set[-2])
+
+confusionMatrix(as.factor(pred_svm),as.factor(test_set$Crime_Solved))
+confusionMatrix(as.factor(pred_svm_linear),as.factor(test_set$Crime_Solved))
+
+op<-sapply(train_set_balanced[,-2],as.numeric)
+op[,1:5]<-op[,1:5]-1
+model_svm_tuned<-tune.svm(x=op,
+                          y=train_set_balanced[,2],
+                          gamma=5*10^(-2:2),
+                          cost=10^(-2:2),
+                          type="C-classification",
+                          kernel="radial", 
+                          scale=FALSE)
+
+mo
+
+model_svm_tuned
+
+
+
+dummies <- dummyVars(~ ., data=train_set_balanced[,-2])
+c2 <- predict(dummies, train_set_balanced[,-2])
+d_training <- as.data.frame(cbind(train_set_balanced[,2], c2))
+
+dummies <- dummyVars(~ ., data=test_set[,-2])
+c2 <- predict(dummies, test_set[,-2])
+d_test <- as.data.frame(cbind(test_set[,2], c2))
+
+### SVM ###
+
+gammalist <- c(0.005,0.01,0.015,0.02,0.025,0.03,0.035,0.04,0.045,0.05)
+tune.out <- tune.svm(as.factor(V1) ~., data=d_training,
+                 kernel='radial', cost=2^(-1:5), gamma = gammalist)
 
 
 
