@@ -20,7 +20,7 @@ path_work<-"Z:/moje/moje/studia QPE/przedmioty/II semestr/Responsible ML/projekt
 path_home<-"C:/Users/t420/Desktop/moje/studia QPE UW/przedmioty/II semestr/Responsible ML/projekt/US homocide"
 path_home_2<-"C:/Users/Krzysztof_ASUS/Desktop/moje/studia QPE/przedmioty/II semestr/Responsible Machine Learning/project/US homocide"
 
-location<-2
+location<-1
 
 setwd(switch(location,path_work,path_home,path_home_2))
 
@@ -735,61 +735,78 @@ for (i in 1:(ncol(data)-1)){
 
 ```{r}
 
+set.seed(123)
 
-model_svm<-svm(Crime_Solved~.,data=train_set_balanced, kernel="radial",
-               gamma=50^(-1),
-               cost=10,
-               type="C-classification",
-               scale=TRUE)
 
 
 model_svm_tuned<-tune(svm,Crime_Solved~.,data=train_set_balanced,
-                      kernel="linear",
-                      ranges=list(cost=c(0.001,0.01,0.1,1,5,10,100)))
+                      kernel="radial",
+                      ranges=list(gamma=2^(-2:2),cost=c(0.001,0.01,0.1,1,5,10,100)))
+
+model_svm_tuned$best.parameters
+
+```
+
+Let's use the best parameters found by tuning the svm model.
 
 
-model_svm_linera<-svm(Crime_Solved~.,
-                      data=train_set_balanced,
-                      kernel="sigmoid", gamma=0.1, cost=0.1, scale=FALSE)
 
-mo
+```{r}
+
+
+model_svm<-svm(Crime_Solved~.,data=train_set_balanced, kernel="radial",
+               gamma=model_svm_tuned$best.parameters$gamma,
+               cost=model_svm_tuned$best.parameters$cost,
+               type="C-classification",
+               scale=TRUE)
+
+# model_svm_linera<-svm(Crime_Solved~.,
+#                       data=train_set_balanced,
+#                       kernel="sigmoid", gamma=0.1, cost=0.1, scale=FALSE)
+
+
 summary(model_svm)
 
+
+# op<-sapply(train_set_balanced[,-2],as.numeric)
+# op[,1:5]<-op[,1:5]-1
+# model_svm_tuned<-tune.svm(x=op,
+#                           y=train_set_balanced[,2],
+#                           gamma=5*10^(-2:2),
+#                           cost=10^(-2:2),
+#                           type="C-classification",
+#                           kernel="radial", 
+#                           scale=FALSE)
+
+
+
+# model_svm_tuned
+
+
+
 pred_svm<-predict(model_svm,newdata=test_set[-2])
-pred_svm_linear<-predict(model_svm_linera,newdata=test_set[-2])
+# pred_svm_tuned<-predict(model_svm_tuned,newdata=test_set[-2])
+# pred_svm_linear<-predict(model_svm_linera,newdata=test_set[-2])
 
 confusionMatrix(as.factor(pred_svm),as.factor(test_set$Crime_Solved))
-confusionMatrix(as.factor(pred_svm_linear),as.factor(test_set$Crime_Solved))
-
-op<-sapply(train_set_balanced[,-2],as.numeric)
-op[,1:5]<-op[,1:5]-1
-model_svm_tuned<-tune.svm(x=op,
-                          y=train_set_balanced[,2],
-                          gamma=5*10^(-2:2),
-                          cost=10^(-2:2),
-                          type="C-classification",
-                          kernel="radial", 
-                          scale=FALSE)
-
-mo
-
-model_svm_tuned
+# confusionMatrix(as.factor(pred_svm_tuned),as.factor(test_set$Crime_Solved))
+# confusionMatrix(as.factor(pred_svm_linear),as.factor(test_set$Crime_Solved))
 
 
 
-dummies <- dummyVars(~ ., data=train_set_balanced[,-2])
-c2 <- predict(dummies, train_set_balanced[,-2])
-d_training <- as.data.frame(cbind(train_set_balanced[,2], c2))
-
-dummies <- dummyVars(~ ., data=test_set[,-2])
-c2 <- predict(dummies, test_set[,-2])
-d_test <- as.data.frame(cbind(test_set[,2], c2))
-
-### SVM ###
-
-gammalist <- c(0.005,0.01,0.015,0.02,0.025,0.03,0.035,0.04,0.045,0.05)
-tune.out <- tune.svm(as.factor(V1) ~., data=d_training,
-                 kernel='radial', cost=2^(-1:5), gamma = gammalist)
+# dummies <- dummyVars(~ ., data=train_set_balanced[,-2])
+# c2 <- predict(dummies, train_set_balanced[,-2])
+# d_training <- as.data.frame(cbind(train_set_balanced[,2], c2))
+# 
+# dummies <- dummyVars(~ ., data=test_set[,-2])
+# c2 <- predict(dummies, test_set[,-2])
+# d_test <- as.data.frame(cbind(test_set[,2], c2))
+# 
+# ### SVM ###
+# 
+# gammalist <- c(0.005,0.01,0.015,0.02,0.025,0.03,0.035,0.04,0.045,0.05)
+# tune.out <- tune.svm(as.factor(V1) ~., data=d_training,
+#                  kernel='radial', cost=2^(-1:5), gamma = gammalist)
 
 
 
@@ -797,7 +814,7 @@ tune.out <- tune.svm(as.factor(V1) ~., data=d_training,
 
 # EXPLAINABILITY  ANALYSIS
 
-For the purpose of explainabaility analysis I will focus on the Random Forest model, as it performs better than logistic regression model in terms of sensitivity, i.e. correctly identifying not solved cases from a subset of not solved cases (TP/ TP +FN). On the other hand, differences in overall accuracy are not considerable.
+For the purpose of explainabaility analysis I will focus on the Random Forest model, as it performs better than logistic regression model and svm model in terms of sensitivity, i.e. correctly identifying not solved cases from a subset of not solved cases (TP/ TP +FN). On the other hand, differences in overall accuracy are not considerable.
 
 ## VARIABLE IMPORTANCE PLOTS
 
@@ -1113,7 +1130,6 @@ eq_odds_age
 
 
 ```
-
 
 
 
