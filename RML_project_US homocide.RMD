@@ -629,7 +629,7 @@ test_set$Crime_Solved<-ifelse(test_set$Crime_Solved=="Yes",1,0)
 pred_log<-predict(model_log, test_set[-2],type="response")
 pred_log_bin<-ifelse(pred_log>=0.5,1,0)
 
-confusionMatrix(as.factor(pred_log_bin),as.factor(test_set$Crime_Solved))
+confusionMatrix(as.factor(pred_log_bin),as.factor(test_set$Crime_Solved), positive = "0")
 
 # ROCR curve
 
@@ -730,7 +730,7 @@ for (i in 1:(ncol(data)-1)){
 
 
 
-<!-- ## SVM -->
+## SVM
 
 
 ```{r}
@@ -741,7 +741,7 @@ set.seed(123)
 
 model_svm_tuned<-tune(svm,Crime_Solved~.,data=train_set_balanced,
                       kernel="radial",
-                      ranges=list(gamma=2^(-2:2),cost=c(0.001,0.01,0.1,1,5,10,100)))
+                      ranges=list(gamma=2^(1),cost=10^(1)))
 
 model_svm_tuned$best.parameters
 
@@ -855,11 +855,7 @@ plot(vip_50)
 
 
 
-
-
-
-
-## PARTIAL DEPENDECE PLOTS
+## PARTIAL DEPENDENCE PLOTS
 
 
 ```{r}
@@ -967,6 +963,7 @@ plot_features(explanation)
 
 
 ```
+
 ## SHAPLEY VALUES
 
 Now, let's look at an alternative approach, i.e. so-called Shapley values.
@@ -996,7 +993,7 @@ plot(shap)
 
 # FAIRNESS ANALYSIS
 
-## Predictive rate parity
+## PREDICTIVE RATE PARITY
 
 
 ```{r}
@@ -1058,7 +1055,28 @@ dem_par_sex
 
 
 
+dem_par_race <- dem_parity(data     = test_set_fair, 
+                      outcome      = 'Crime_Solved',
+                      outcome_base = '1', 
+                      group        = 'Victim_Race',
+                      probs        = 'probs_1',
+                      base         = "Black")
+dem_par_race
+
+
+
+dem_par_age <- dem_parity(data     = test_set_fair, 
+                      outcome      = 'Crime_Solved',
+                      outcome_base = '1', 
+                      group        = 'Victim_Age',
+                      probs        = 'probs_1',
+                      base         = "30-45")
+dem_par_age
+
+
 ```
+
+
 ## PROPORTIONAL PARITY
 
 ```{r}
@@ -1096,7 +1114,7 @@ prop_par_age
 
 
 
-## EQUALIZEd ODDS
+## EQUALIZED ODDS
 
 ```{r}
 
