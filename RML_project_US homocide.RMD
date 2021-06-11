@@ -66,9 +66,11 @@ Crime Solved was chosen as target variable. This variable defines whether a crim
 In the final model, the following variables were used:
 
 *Target variable*
+
 * Crime Solved 
 
 *Explanatory variables*
+
 1.	Agency Type (e.g. County Police, State Police, etc.)
 2.	Victim’s Sex (Female, Male)
 3.	Victim’s Race (e.g. Black, White, Native, etc.)
@@ -77,6 +79,7 @@ In the final model, the following variables were used:
 6.	Victim’s Count ( how many additional victims there were – integral 0 – 10 people)
 
 *Protected variables*
+
 1.	Victim’s Sex
 2.	Victim’s Race
 3.	Victim’s Age 
@@ -781,6 +784,7 @@ However, in all models applied, and in the Random Forest in particular Victim's 
 
 ## PREDICTIVE RATE PARITY
 
+Before looking at predictive rate parity, let's first look at the densities of predicted probabilites for different subgroups of Victim's Age and Victim's Sex in the dataset.
 
 ```{r}
 
@@ -796,7 +800,6 @@ prp_sex <- pred_rate_parity(data         = test_set_fair,
                          cutoff       = 0.5, 
                          base         = 'Female')
 
-prp_sex
 
 
 
@@ -808,8 +811,20 @@ prp_age <- pred_rate_parity(data         = test_set_fair,
                          cutoff       = 0.5, 
                          base         = '30-45')
 
-prp_age
 
+prp_sex[3]
+prp_age[3]
+
+
+
+```
+
+Now, let's see predictive rate parity results.
+
+
+```{r}
+prp_sex[1:2]
+prp_age[1:2]
 
 
 ```
@@ -826,7 +841,7 @@ dem_par_sex <- dem_parity(data     = test_set_fair,
                       group        = 'Victim_Sex',
                       probs        = 'probs_1',
                       base         = "Female")
-dem_par_sex
+dem_par_sex[1:2]
 
 
 
@@ -836,7 +851,7 @@ dem_par_age <- dem_parity(data     = test_set_fair,
                       group        = 'Victim_Age',
                       probs        = 'probs_1',
                       base         = "30-45")
-dem_par_age
+dem_par_age[1:2]
 
 
 ```
@@ -852,7 +867,7 @@ prop_par_sex <- prop_parity(data     = test_set_fair,
                       group        = 'Victim_Sex',
                       probs        = 'probs_1',
                       base         = "Female")
-prop_par_sex
+prop_par_sex[1:2]
 
 
 prop_par_age <- prop_parity(data     = test_set_fair, 
@@ -861,7 +876,7 @@ prop_par_age <- prop_parity(data     = test_set_fair,
                       group        = 'Victim_Age',
                       probs        = 'probs_1',
                       base         = "30-45")
-prop_par_age
+prop_par_age[1:2]
 
 
 
@@ -879,7 +894,7 @@ eq_odds_sex <- equal_odds(data     = test_set_fair,
                       group        = 'Victim_Sex',
                       probs        = 'probs_1',
                       base         = "Female")
-eq_odds_sex
+eq_odds_sex[1:2]
 
 
 
@@ -889,7 +904,8 @@ eq_odds_age <- equal_odds(data     = test_set_fair,
                       group        = 'Victim_Age',
                       probs        = 'probs_1',
                       base         = "30-45")
-eq_odds_age
+
+eq_odds_age[1:2]
 
 
 ```
