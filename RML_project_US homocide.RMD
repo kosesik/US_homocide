@@ -1,7 +1,7 @@
 ---
 title: "RML_project_US homocide"
 author: "Krzysztof Osesik"
-date: "30 04 2021"
+date: "15 06 2021"
 output: html_document
 ---
 
@@ -31,11 +31,23 @@ rm(list=ls())
 
 ## Problem Context
 
-The Murder Accountability Project is the most complete database of homicides in the United States currently available. This dataset includes murders from the FBI's Supplementary Homicide Report from 1976 to the present and Freedom of Information Act data on more than 22,000 homicides that were not reported to the Justice Department. This dataset includes the age, race, sex, ethnicity of victims and perpetrators, in addition to the relationship between the victim and perpetrator and weapon used.
+The Murder Accountability Project is the most complete database of homicides in the United States currently available. This dataset includes murders from the FBI's Supplementary Homicide Report from 1976 to the present. 
+
+Dataset comes from Kaggle (https://www.kaggle.com/murderaccountability/homicide-reports).
+
+The dataset consists of nearly 640,000 crime cases. They are described by 24 variables, for example City, State, Year, Crime Type, Victim's Age, Perpetrator's Age and Weapon Used. 
+
+
+## Stakeholder
+
+A stakeholder could be associated with a public authority aiming at ensuring that – in a case of a murder – identical effort is put into investigation with no regard for the victim’s race, sex or age. As a result similar crimes should be solved (alternatively not solved) independent of the victim’s race, sex  and age. 
+
+The stakeholder is thus interested in evaluating the model’s general performance.  Their goal is to analyze whether there is some bias in police investigations towards certain social groups, which effectively results in a lower rate of solved crimes for those groups. 
+
 
 ## Objectives
 
-The goal of the analysis is to determine whether fairness of the model is maintained. To that end, we analyze whether identified protected variables affect the outcome of the crime investigation. In the data set victim's age, race and sex were identified as protected variables and whether a crime was solved or not was identified as target variable. In addition, explainability analysis was also conducted.
+The goal of the analysis is to determine whether fairness of the model is maintained. To that end, I analyze whether identified protected variables affect the outcome of the crime investigation. In the dataset victim's age, race and sex were identified as protected variables and whether a crime was solved or not was identified as target variable. In addition, explainability analysis was also conducted.
 
 To sum up, the following are the objectives of the project:
 
@@ -47,11 +59,32 @@ To sum up, the following are the objectives of the project:
 
 ## Data
 
-The data set consists of nearly 640,000 crime cases. They are described by 24 variables, for example City, State, Year, Crime Type, Victim's Age, Perpetrator's Age and Weapon Used. 
+The dataset consists of nearly 640,000 crime cases. They are described by 24 variables, for example City, State, Year, Crime Type, Victim's Age, Perpetrator's Age and Weapon Used. 
 
 Crime Solved was chosen as target variable. This variable defines whether a crime was solved or not. The remaining of 23 variables was chosen to be independent variables ( not all of which are relevant).
 
-The data is however imbalanced, as we have less than 30% of cases where crime remained unsolved. This will need to be dealt with in the process of the analysis.
+In the final model, the following variables were used:
+
+*Target variable*
+* Crime Solved 
+
+*Explanatory variables*
+1.	Agency Type (e.g. County Police, State Police, etc.)
+2.	Victim’s Sex (Female, Male)
+3.	Victim’s Race (e.g. Black, White, Native, etc.)
+4.	Victim’s Age ( continuous 18-100 years old)
+5.	Weapon (e.g. Knife, Gun, Poison, etc.)
+6.	Victim’s Count ( how many additional victims there were – integral 0 – 10 people)
+
+*Protected variables*
+1.	Victim’s Sex
+2.	Victim’s Race
+3.	Victim’s Age 
+
+In addition, in order to increae computational efficiency, the dataset was reduced to look only at crimes in five U.S. States, i.e. Louisiana, Alabama, Mississippi, Georgia and South Carolina, which are known to be less friendly towards ethnic minorities (especially black). The timeframe of the analysis is 1980s (1980-1989).
+
+
+The data is imbalanced, as there is less than 30% of cases where crime remained unsolved. This will need to be dealt with in the process of the analysis.
 
 
 Loading required libraries.
@@ -101,7 +134,7 @@ Let's take an initial glance at the data.
 
 ```{r}
 dim(data)
-View(data)
+# View(data)
 summary(data)
 str(data)
 ```
@@ -218,11 +251,6 @@ data %>%
   select(Victim_Age, Crime_Solved) %>% 
   ggplot(aes(x=Victim_Age,fill=Crime_Solved))+geom_density(alpha=0.4)+theme_bw()
 
-# data %>% 
-#   select(Perpetrator_Age, Crime_Solved) %>% 
-#   ggplot(aes(x=Perpetrator_Age,fill=Crime_Solved))+geom_density(alpha=0.4)+theme_bw()
-
-
 
 ```
 
@@ -233,50 +261,7 @@ Let's group categorical variables into fewer levels.
 # FEATURE ENGINEERING
 
 ```{r}
-# temp<-c("Crime_Solved", "Victim_Age")
-# 
-# temp<-colnames(data[,-which(colnames(data) %in% temp)])
-# 
-# df_levs<-data.frame()
-#  
-# for ( i in temp){
-#   
-#   levs<-data %>% 
-#     select(as.name(i)) %>% 
-#     unique()%>%
-#     pull()%>%
-#     as.character()
-#     
-#   
-#   for ( j in levs){
-#     
-#   data_adj<-subset(data,eval(as.name(i))==j)
-#       
-#     
-#   not_solved<-length(data_adj$Crime_Solved[data_adj$Crime_Solved=="No"])
-#   solved<-length(data_adj$Crime_Solved[data_adj$Crime_Solved=="Yes"])
-#   
-#   df_levs<-rbind(df_levs,cbind(i, j,not_solved,solved))
-#   
-#   
-#   }
-#   
-#   
-#   
-# }
-# rm(data_adj)
-# 
-# df_levs$not_solved<-as.numeric(df_levs$not_solved)
-# df_levs$solved<-as.numeric(df_levs$solved)
-# 
-# 
-# df_levs<-df_levs%>%
-#   dplyr::mutate(ratio=not_solved/(solved+not_solved))%>%
-#   arrange(desc(ratio))
-# 
-# df_levs
-# 
-# 
+
 
 data<-subset(data,subset=Victim_Sex!="Unknown" & Victim_Race!="Unknown")
 
@@ -288,9 +273,6 @@ data$Victim_Race<-droplevels(data$Victim_Race,exclude = anyNA(levels(data$Victim
 detach(data)
 
 data$Weapon<-as.character(data$Weapon)
-# levs<-levels(data$Relationship)
-# data$Relationship<-as.character(data$Relationship)
-
 
 temp<-c("Firearm","Gun","Handgun","Rifle","Shotgun")
 
@@ -303,52 +285,9 @@ data$Weapon[which(data$Weapon %in% temp)]<-"Suffocation"
 data$Weapon<-as.factor(data$Weapon)
 
 
-
-# temp<-levs[c(1,14,19)]
-# 
-# data$Relationship[which(data$Relationship %in% temp)]<-"Acquaintance"
-# 
-# temp<-levs[c(4,20)]
-# 
-# data$Relationship[which(data$Relationship %in% temp)]<-"Siblings"
-# 
-# temp<-levs[c(8,9)]
-# 
-# data$Relationship[which(data$Relationship %in% temp)]<-"Workplace"
-# 
-# temp<-levs[c(22:25)]
-# 
-# data$Relationship[which(data$Relationship %in% temp)]<-"Step- relations"
-# 
-# temp<-levs[c(2,3,15)]
-# 
-# data$Relationship[which(data$Relationship %in% temp)]<-"Boyfriend/ Girlfriend"
-# 
-# temp<-levs[c(5,10,16)]
-# 
-# data$Relationship[which(data$Relationship %in% temp)]<-"Husband"
-# 
-# temp<-levs[c(6,11,28)]
-# 
-# data$Relationship[which(data$Relationship %in% temp)]<-"Wife"
-# 
-# # data$Relationship<-droplevels(data$Weapon,exclude = anyNA(levels(data$Relationship)))
-# 
-# data$Weapon<-as.factor(data$Weapon)
-# data$Relationship<-as.factor(data$Relationship)
-# rm(levs)
-
 attach(data)
 
-
-#
 data$Victim_Age<-cut(data$Victim_Age,breaks=c(18,30,45,60,75,100), labels = c("18-30","30-45","45-60","60-75","75+"),right = FALSE)
-
-# data$Perpetrator_Age<-cut(data$Perpetrator_Age,breaks=c(seq(15,65,10),100), labels = c("15-25","25-35","35-45","45-55","55-65","65+"),right=FALSE)
-#
-# data$Victim_Count<-as.factor(data$Victim_Count)
-#
-# data$Perpetrator_Count<-as.factor(data$Perpetrator_Count)
 
 
 ```
@@ -360,10 +299,6 @@ Let's look at some distributions of categorical variables.
 ```{r}
 
 temp<-colnames(data)
-
-# ppt<-read_pptx("RML_project.pptx")
-
-# ppt %>% officer::layout_properties()
 
 for (i in (temp)){
   
@@ -377,12 +312,7 @@ p<-data %>%
 
 print(p)
 
-# 
-# ppt<-ppt %>% 
-#   add_slide(master="Content",layout="Wykres") %>% 
-#   ph_with(value=p,location=ph_location_label(ph_label="Plot"))
-   
-  
+
 }
 
 
@@ -411,23 +341,6 @@ Now, take a look at conditional distributions for protected categorical variable
 print(p)
 
 
-
-# 
-#   p<-data %>%
-#   select(Crime_Solved,Perpetrator_Sex) %>%
-#   ggplot(aes(x=Perpetrator_Sex, group=Crime_Solved, y=(..prop..), fill=factor(..x..)))+geom_bar(position ="dodge")+
-#     facet_grid(~Crime_Solved)+
-#     geom_text(aes(y=(..prop..),label=scales::percent(round(..prop..,3))),stat="count", vjust=-.5)+
-#     scale_y_continuous(labels=scales::percent, limits=c(0,1))+
-#     labs(y="Percent", fill=Perpetrator_Sex)+
-#     scale_fill_discrete(labels = levels(Perpetrator_Sex))+
-#     theme_bw()+
-#     theme(axis.text.x = element_text(angle = 90))
-# 
-# 
-# print(p)
-
-
   p<-data %>%
   select(Crime_Solved,Weapon) %>%
   ggplot(aes(x=Weapon, group=Crime_Solved, y=(..prop..), fill=factor(..x..)))+geom_bar(position ="dodge")+
@@ -443,44 +356,6 @@ print(p)
 print(p)
 
 
-
-
-
-
-
-
-
-
-
-
-#   p<-data %>% 
-#   select(Crime_Solved,Relationship) %>% 
-#   ggplot(aes(x=Relationship, group=Crime_Solved, y=(..prop..), fill=factor(..x..)))+geom_bar(position ="dodge")+
-#     facet_grid(~Crime_Solved)+
-#     geom_text(aes(y=(..prop..),label=scales::percent(round(..prop..,3))),stat="count", vjust=-.5)+
-#     scale_y_continuous(labels=scales::percent, limits=c(0,1))+
-#     labs(y="Percent", fill=Relationship)+
-#     scale_fill_discrete(labels = levels(Relationship))+
-#     theme_bw()+
-#     theme(axis.text.x = element_text(angle = 90))
-# 
-# 
-# print(p)
-# 
-
-
-
-
-
-
-
-
-
-# ppt<-ppt %>% 
-#   add_slide(master="Content",layout="Wykres") %>% 
-#   ph_with(value=p,location=ph_location_label(ph_label="Plot"))
-   
-  
   p<-data %>% 
   select(Crime_Solved,Victim_Race) %>% 
   ggplot(aes(x=Victim_Race, group=Crime_Solved, y=(..prop..), fill=factor(..x..)))+geom_bar(position ="dodge")+
@@ -493,32 +368,7 @@ print(p)
     theme(axis.text.x = element_text(angle = 90))
    
    print(p)
-# 
-# ppt<-ppt %>% 
-#   add_slide(master="Content",layout="Wykres") %>% 
-#   ph_with(value=p,location=ph_location_label(ph_label="Plot"))
-   
-   
-  #  p<-data %>%
-  # select(Crime_Solved,Victim_Age) %>%
-  # ggplot(aes(x=Victim_Age, group=Crime_Solved, y=(..prop..), fill=factor(..x..)))+geom_bar(position ="dodge")+
-  #   facet_grid(~Crime_Solved)+
-  #   geom_text(aes(y=(..prop..),label=scales::percent(round(..prop..,3))),stat="count", vjust=-.5)+
-  #   scale_y_continuous(labels=scales::percent, limits=c(0,1))+
-  #   labs(y="Percent", fill=Victim_Age)+
-  #   scale_fill_discrete(labels = levels(Victim_Age))+
-  #   theme_bw()+
-  #   theme(axis.text.x = element_text(angle = 90))
-  # 
-  #     print(p)
 
-# ppt<-ppt %>% 
-#   add_slide(master="Content",layout="Wykres") %>% 
-#   ph_with(value=p,location=ph_location_label(ph_label="Plot"))
-      
-      
-     # print(ppt,target="RML_project.pptx") 
- 
 ```
 
 Let's take a look at correlation (association) between categorical variables in the dataset. I will use Thiel's uncertainty coefficient to that end.
@@ -578,8 +428,6 @@ Proportions of binary responses of target variable have been maintained in the t
 ```{r}
 
 train_set_balanced<-ovun.sample(Crime_Solved~., data=train_set,method="both",p=0.5)
-        #                        N=2*length(train_set$Crime_Solved[train_set$Crime_Solved=="No"]))
-                                # p=0.5 
 
 train_set_balanced<-train_set_balanced$data
 
@@ -591,7 +439,7 @@ table(train_set_balanced$Crime_Solved)
 
 ## LOGISTIC REGRESSION
 
-Let's start predictive modelling. First, logistic regression model will be applied.
+Let's start predictive modelling. First, logistic regression model will be applied. Let's look at its summary.
 
 ```{r}
 train_set_balanced$Crime_Solved<-ifelse(train_set_balanced$Crime_Solved=="Yes",1,0)
@@ -602,11 +450,12 @@ model_log<-glm(Crime_Solved~.,data=train_set_balanced, family=binomial (link="lo
 
 summary(model_log)
 
-# model_log2<-bayesglm(Crime_Solved~.,data=train_set_balanced, family=binomial (link="logit"))
+```
 
-# summary(model_log2)
+Some dummy variables are indicated assignificant. Now, let's look at some other diagnostics.
 
 
+```{r}
 
 pR2(model_log)["McFadden"]
 
@@ -623,6 +472,14 @@ head(vars_imp[order(vars_imp$Overall,decreasing = TRUE),],10)
 
 anova(model_log, test="Chisq")
 
+```
+
+
+From the anova analysis, it looks like for the logistic regression model - Weapon, Agency Type and Victim's Age are the most important explanatory variables. 
+
+Now, let's try predict values based on a test set data and evaluate confusion matrix and ROC curve.
+
+```{r}
 
 test_set$Crime_Solved<-ifelse(test_set$Crime_Solved=="Yes",1,0)
 
@@ -631,26 +488,13 @@ pred_log_bin<-ifelse(pred_log>=0.5,1,0)
 
 confusionMatrix(as.factor(pred_log_bin),as.factor(test_set$Crime_Solved), positive = "0")
 
-# ROCR curve
 
 roc<-roc(test_set$Crime_Solved~pred_log,plot=TRUE,print.auc=TRUE,col="green",lwd =4,legacy.axes=TRUE,main="ROC Curve - Logistic Regression")
 
 
-
-
-
-# opt_cp_df<-data.frame(pred=pred_log, observed=test_set$Crime_Solved)
-# 
-# opt_cp<-optimal.cutpoints(X="pred", status="observed",methods = "Youden", data=opt_cp_df, tag.healthy = "1")
-# 
-# summary(opt_cp)
-# 
-# plot(opt_cp)
-
-
 ```
 
-Let's look at the results of logistic regression modelling with a use of cross-valdiation.
+Let's look at the results of logistic regression modeling with a use of cross-valdiation.
 
 ```{r}
 
@@ -664,27 +508,22 @@ pred_log_cv_bin<-ifelse(pred_log>=0.5,1,0)
 
 confusionMatrix(as.factor(pred_log_cv_bin),as.factor(test_set$Crime_Solved))
 
-# ROCR curve
 
 roc<-roc(test_set$Crime_Solved~pred_log_cv[,2],plot=TRUE,print.auc=TRUE,col="green",lwd =4,legacy.axes=TRUE,main="ROC Curve - Logistic Regression Cross Validation")
+
 ```
 
-The results with or without the use of cross-validation are identical. Now, let's apply random forest algorithm.
+The results with or without the use of cross-validation are identical.
+
+
+Now, let's apply random forest algorithm using randomForest package.
 
 
 ##Random Forest
 
 ```{r}
 
-# model_rf<-randomForest(x=train_set_balanced[-2],
-#                        y=train_set_balanced$Crime_Solved,
-#                        ntree=100)
-
 model_rf<-randomForest(Crime_Solved~.,data=train_set_balanced, ntree=30 )
-
-# model_rf<-caret::train(Crime_Solved ~ ., data = train_set_balanced,method = "rf",
-# trControl = trainControl(method = "repeatedcv", number = 10,repeats = 5, verboseIter = FALSE))
-
 
 pred_rf<-predict(model_rf,newdata=test_set[-2],type="prob")
 
@@ -697,6 +536,12 @@ roc<-roc(test_set$Crime_Solved~pred_rf[,2],plot=TRUE,print.auc=TRUE,col="green",
 
 model_rf
 
+```
+
+Let's look at some aditional diagnostics for the random forest model.
+
+
+```{r}
 
 obb_error_df<-data.frame(
   Trees=rep(1:nrow(model_rf$err.rate), times=3),
@@ -713,8 +558,6 @@ varImp<-importance(model_rf)
 
 varImpPlot(model_rf)
 
-# plot(varImp(model_rf))
-
 
 oob_values<-vector(length=10)
 
@@ -728,6 +571,8 @@ for (i in 1:(ncol(data)-1)){
 
 ```
 
+
+Now, let us apply support vector mechanism (SVM) algorithm.
 
 
 ## SVM
@@ -760,61 +605,44 @@ model_svm<-svm(Crime_Solved~.,data=train_set_balanced, kernel="radial",
                type="C-classification",
                scale=TRUE)
 
-# model_svm_linera<-svm(Crime_Solved~.,
-#                       data=train_set_balanced,
-#                       kernel="sigmoid", gamma=0.1, cost=0.1, scale=FALSE)
-
 
 summary(model_svm)
 
+```
 
-# op<-sapply(train_set_balanced[,-2],as.numeric)
-# op[,1:5]<-op[,1:5]-1
-# model_svm_tuned<-tune.svm(x=op,
-#                           y=train_set_balanced[,2],
-#                           gamma=5*10^(-2:2),
-#                           cost=10^(-2:2),
-#                           type="C-classification",
-#                           kernel="radial", 
-#                           scale=FALSE)
+Let's predict repsonses based on test set and evaluate confusion matrix.
 
-
-
-# model_svm_tuned
-
-
+```{r}
 
 pred_svm<-predict(model_svm,newdata=test_set[-2])
-# pred_svm_tuned<-predict(model_svm_tuned,newdata=test_set[-2])
-# pred_svm_linear<-predict(model_svm_linera,newdata=test_set[-2])
+
 
 confusionMatrix(as.factor(pred_svm),as.factor(test_set$Crime_Solved))
-# confusionMatrix(as.factor(pred_svm_tuned),as.factor(test_set$Crime_Solved))
-# confusionMatrix(as.factor(pred_svm_linear),as.factor(test_set$Crime_Solved))
 
-
-
-# dummies <- dummyVars(~ ., data=train_set_balanced[,-2])
-# c2 <- predict(dummies, train_set_balanced[,-2])
-# d_training <- as.data.frame(cbind(train_set_balanced[,2], c2))
-# 
-# dummies <- dummyVars(~ ., data=test_set[,-2])
-# c2 <- predict(dummies, test_set[,-2])
-# d_test <- as.data.frame(cbind(test_set[,2], c2))
-# 
-# ### SVM ###
-# 
-# gammalist <- c(0.005,0.01,0.015,0.02,0.025,0.03,0.035,0.04,0.045,0.05)
-# tune.out <- tune.svm(as.factor(V1) ~., data=d_training,
-#                  kernel='radial', cost=2^(-1:5), gamma = gammalist)
 
 
 
 ```
 
+SVM performs very similarly to Random forest model. However, Random forest model, at the cost of slightly worse model accuracy (positive prediction value is the same) fares better in terms of sensitivity metrics, i.e. in identifying positive cases ( for the purpose of our analysis "positive case" is associated with crime not-solved - factor level "0"). Therefore, in the subsequent parts, i.e. explainability analysis and fairness analysis Random forest will be used.
+
+
+
 # EXPLAINABILITY  ANALYSIS
 
-For the purpose of explainabaility analysis I will focus on the Random Forest model, as it performs better than logistic regression model and svm model in terms of sensitivity, i.e. correctly identifying not solved cases from a subset of not solved cases (TP/ TP +FN). On the other hand, differences in overall accuracy are not considerable.
+In the explainability part I will focus on:
+
+1.two global metrics:
+
+  +     variable importance plots
+  +     partial dependence plots
+  
+2. two local metrics:
+
+  +     LIME
+  +     Shapley Values
+
+
 
 ## VARIABLE IMPORTANCE PLOTS
 
@@ -838,17 +666,6 @@ vip_50<-model_parts(explainer = explain_rf,
 
 
 plot(vip_50)
-
-
-
-
-
-
-
-
-
-
-# vip(model_rf,geom="point", horizontal = FALSE, size = 1.5) 
 
 
 ```
@@ -888,27 +705,6 @@ print(plot(pdp_fun(col_n[i])))
 
 
 
-
-
-
-# pdp<-function(x){
-#   
-# temp<-pdp::partial(model_rf, pred.var = x, chull = TRUE, rug=TRUE, plot=TRUE)
-# # autoplot(temp, contour = TRUE)
-#   
-#   
-# }
-# 
-# col_n<-colnames(test_set)[-2]
-# 
-# for (i in seq_along(col_n)){
-#   
-# print(pdp(col_n[i]))
-#   
-# }
-
-
-
 ```
 
 
@@ -923,8 +719,6 @@ test_set$Crime_Solved<-as.factor(test_set$Crime_Solved)
 test_set$Victim_Count<-as.numeric(test_set$Victim_Count)
 
 
-# test_set<-cbind(Id=(1:nrow(test_set)),test_set)
-
 explainer <- lime(train_set_balanced[,-2], model_rf, quantile_bins = FALSE)
 
 set.seed(123)
@@ -938,28 +732,6 @@ explanation
 
 
 plot_features(explanation)
-
-
-
-
-
-
-# explain_rf <- DALEX::explain(model = model_rf,
-#                         data = test_set[,-2],
-#                            y = test_set$Crime_Solved,
-#                         label="Random Forest")
-# 
-# lime <- predict_surrogate(explainer = explain_rf,
-#                   new_observation = d_test[3:5,-2],
-#                   n_features = 2,
-#                   n_permutations = 1000,
-#                   type = "lime"
-#                   )
-# 
-# as.data.frame(lime)
-# 
-# plot(lime)
-
 
 
 ```
@@ -990,6 +762,20 @@ plot(shap)
 ```
 
 
+Now, let's turn to fairness analysis. Here I will use four metrics:
+
+1. Predictive rate parity
+2. Demographic parity
+3. Proportional parity
+4. Equalized odds
+
+At the stage of explanatory model analysis, I identyfied three potential protected variables, i.e.:
+
+1.	Victim’s Sex
+2.	Victim’s Race
+3.	Victim’s Age
+
+However, in all models applied, and in the Random Forest in particular Victim's Race does not seem to be a significant variable, which indicates that racial profiling did not have much weight on crime investigations. In turn, out of the three protected variables, Victim's Age seems most significant, followed by Victim's Sex. Thus, in the subsequent fairness analysis I will only focus on these two protected variables.
 
 # FAIRNESS ANALYSIS
 
@@ -1011,17 +797,6 @@ prp_sex <- pred_rate_parity(data         = test_set_fair,
                          base         = 'Female')
 
 prp_sex
-
-
-prp_race <- pred_rate_parity(data         = test_set_fair, 
-                         outcome      = "Crime_Solved", 
-                         outcome_base = '1', 
-                         group        = 'Victim_Race',
-                         probs        = 'probs_1', 
-                         cutoff       = 0.5, 
-                         base         = 'Black')
-
-prp_race
 
 
 
@@ -1055,16 +830,6 @@ dem_par_sex
 
 
 
-dem_par_race <- dem_parity(data     = test_set_fair, 
-                      outcome      = 'Crime_Solved',
-                      outcome_base = '1', 
-                      group        = 'Victim_Race',
-                      probs        = 'probs_1',
-                      base         = "Black")
-dem_par_race
-
-
-
 dem_par_age <- dem_parity(data     = test_set_fair, 
                       outcome      = 'Crime_Solved',
                       outcome_base = '1', 
@@ -1090,15 +855,6 @@ prop_par_sex <- prop_parity(data     = test_set_fair,
 prop_par_sex
 
 
-prop_par_race <- prop_parity(data     = test_set_fair, 
-                      outcome      = 'Crime_Solved',
-                      outcome_base = '1', 
-                      group        = 'Victim_Race',
-                      probs        = 'probs_1',
-                      base         = "Black")
-prop_par_race
-
-
 prop_par_age <- prop_parity(data     = test_set_fair, 
                       outcome      = 'Crime_Solved',
                       outcome_base = '1', 
@@ -1106,7 +862,6 @@ prop_par_age <- prop_parity(data     = test_set_fair,
                       probs        = 'probs_1',
                       base         = "30-45")
 prop_par_age
-
 
 
 
@@ -1127,16 +882,6 @@ eq_odds_sex <- equal_odds(data     = test_set_fair,
 eq_odds_sex
 
 
-eq_odds_race <- equal_odds(data     = test_set_fair, 
-                      outcome      = 'Crime_Solved',
-                      outcome_base = '1', 
-                      group        = 'Victim_Race',
-                      probs        = 'probs_1',
-                      base         = "Black")
-eq_odds_race
-
-
-
 
 eq_odds_age <- equal_odds(data     = test_set_fair, 
                       outcome      = 'Crime_Solved',
@@ -1150,5 +895,6 @@ eq_odds_age
 ```
 
 
+# SUMMARY
 
 
