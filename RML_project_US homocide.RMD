@@ -20,7 +20,7 @@ path_work<-"Z:/moje/moje/studia QPE/przedmioty/II semestr/Responsible ML/projekt
 path_home<-"C:/Users/t420/Desktop/moje/studia QPE UW/przedmioty/II semestr/Responsible ML/projekt/US homocide"
 path_home_2<-"C:/Users/Krzysztof_ASUS/Desktop/moje/studia QPE/przedmioty/II semestr/Responsible Machine Learning/project/US homocide"
 
-location<-1
+location<-2
 
 setwd(switch(location,path_work,path_home,path_home_2))
 
@@ -589,7 +589,7 @@ set.seed(123)
 
 model_svm_tuned<-tune(svm,Crime_Solved~.,data=train_set_balanced,
                       kernel="radial",
-                      ranges=list(gamma=2^(1),cost=10^(1)))
+                      ranges=list(gamma=2^(0),cost=10^(0)))
 
 model_svm_tuned$best.parameters
 
@@ -623,7 +623,7 @@ pred_svm<-predict(model_svm,newdata=test_set[-2])
 confusionMatrix(as.factor(pred_svm),as.factor(test_set$Crime_Solved))
 
 
-
+roc<-roc(test_set$Crime_Solved~as.numeric(as.character(pred_svm)),plot=TRUE,print.auc=TRUE,col="green",lwd =4,legacy.axes=TRUE,main="ROC Curve - SVM")
 
 ```
 
@@ -794,7 +794,7 @@ colnames(test_set_fair)[(ncol(test_set_fair)-1):ncol(test_set_fair)]<-c("probs_0
 
 prp_sex <- pred_rate_parity(data         = test_set_fair, 
                          outcome      = "Crime_Solved", 
-                         outcome_base = '1', 
+                         outcome_base = '0', 
                          group        = 'Victim_Sex',
                          probs        = 'probs_1', 
                          cutoff       = 0.5, 
@@ -805,7 +805,7 @@ prp_sex <- pred_rate_parity(data         = test_set_fair,
 
 prp_age <- pred_rate_parity(data         = test_set_fair, 
                          outcome      = "Crime_Solved", 
-                         outcome_base = '1', 
+                         outcome_base = '0', 
                          group        = 'Victim_Age',
                          probs        = 'probs_1', 
                          cutoff       = 0.5, 
@@ -815,7 +815,7 @@ prp_age <- pred_rate_parity(data         = test_set_fair,
 prp_sex[3]
 prp_age[3]
 
-
+"Formula: TP / (TP + FP) - precision"
 
 ```
 
@@ -837,7 +837,7 @@ prp_age[1:2]
 
 dem_par_sex <- dem_parity(data     = test_set_fair, 
                       outcome      = 'Crime_Solved',
-                      outcome_base = '1', 
+                      outcome_base = '0', 
                       group        = 'Victim_Sex',
                       probs        = 'probs_1',
                       base         = "Female")
@@ -847,12 +847,14 @@ dem_par_sex[1:2]
 
 dem_par_age <- dem_parity(data     = test_set_fair, 
                       outcome      = 'Crime_Solved',
-                      outcome_base = '1', 
+                      outcome_base = '0', 
                       group        = 'Victim_Age',
                       probs        = 'probs_1',
                       base         = "30-45")
 dem_par_age[1:2]
 
+
+"Formula: (TP + FP) - absolute number of all positively classified individuals in all subgroups"
 
 ```
 
@@ -863,7 +865,7 @@ dem_par_age[1:2]
 
 prop_par_sex <- prop_parity(data     = test_set_fair, 
                       outcome      = 'Crime_Solved',
-                      outcome_base = '1', 
+                      outcome_base = '0', 
                       group        = 'Victim_Sex',
                       probs        = 'probs_1',
                       base         = "Female")
@@ -872,13 +874,13 @@ prop_par_sex[1:2]
 
 prop_par_age <- prop_parity(data     = test_set_fair, 
                       outcome      = 'Crime_Solved',
-                      outcome_base = '1', 
+                      outcome_base = '0', 
                       group        = 'Victim_Age',
                       probs        = 'probs_1',
                       base         = "30-45")
 prop_par_age[1:2]
 
-
+"Formula: (TP + FP) / (TP + FP + TN + FN) - proportion of all positively classified individuals in all subgroups"
 
 ```
 
@@ -890,7 +892,7 @@ prop_par_age[1:2]
 
 eq_odds_sex <- equal_odds(data     = test_set_fair, 
                       outcome      = 'Crime_Solved',
-                      outcome_base = '1', 
+                      outcome_base = '0', 
                       group        = 'Victim_Sex',
                       probs        = 'probs_1',
                       base         = "Female")
@@ -900,17 +902,17 @@ eq_odds_sex[1:2]
 
 eq_odds_age <- equal_odds(data     = test_set_fair, 
                       outcome      = 'Crime_Solved',
-                      outcome_base = '1', 
+                      outcome_base = '0', 
                       group        = 'Victim_Age',
                       probs        = 'probs_1',
                       base         = "30-45")
 
 eq_odds_age[1:2]
 
+"Formula: TP / (TP + FN) - sensitivity"
 
 ```
 
 
 # SUMMARY
-
 
