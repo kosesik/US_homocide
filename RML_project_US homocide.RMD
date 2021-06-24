@@ -20,14 +20,14 @@ path_work<-"Z:/moje/moje/studia QPE/przedmioty/II semestr/Responsible ML/projekt
 path_home<-"C:/Users/t420/Desktop/moje/studia QPE UW/przedmioty/II semestr/Responsible ML/projekt/US homocide"
 path_home_2<-"C:/Users/Krzysztof_ASUS/Desktop/moje/studia QPE/przedmioty/II semestr/Responsible Machine Learning/project/US homocide"
 
-location<-2
+location<-1
 
 setwd(switch(location,path_work,path_home,path_home_2))
 
 rm(list=ls())
 ```
 
-# Introduction
+# **Introduction**
 
 ## Problem Context
 
@@ -61,6 +61,8 @@ To sum up, the following are the objectives of the project:
 
 The dataset consists of nearly 640,000 crime cases. They are described by 24 variables, for example City, State, Year, Crime Type, Victim's Age, Perpetrator's Age and Weapon Used. 
 
+In addition, in order to increase computational efficiency, the dataset was reduced to look only at crimes in five U.S. States, i.e. Louisiana, Alabama, Mississippi, Georgia and South Carolina, which are known to be less friendly towards ethnic minorities (especially black). The timeframe of the analysis is 1980s (1980-1989).
+
 Crime Solved was chosen as target variable. This variable defines whether a crime was solved or not. The remaining of 23 variables was chosen to be independent variables ( not all of which are relevant).
 
 In the final model, the following variables were used:
@@ -68,6 +70,9 @@ In the final model, the following variables were used:
 *Target variable*
 
 * Crime Solved 
+
+The data is however imbalanced, as there is less than 30% of cases where crime remained unsolved. This will need to be dealt with in the process of the analysis.
+
 
 *Explanatory variables*
 
@@ -84,15 +89,12 @@ In the final model, the following variables were used:
 2.	Victim’s Race
 3.	Victim’s Age 
 
-In addition, in order to increae computational efficiency, the dataset was reduced to look only at crimes in five U.S. States, i.e. Louisiana, Alabama, Mississippi, Georgia and South Carolina, which are known to be less friendly towards ethnic minorities (especially black). The timeframe of the analysis is 1980s (1980-1989).
 
 
-The data is imbalanced, as there is less than 30% of cases where crime remained unsolved. This will need to be dealt with in the process of the analysis.
 
+<!-- Loading required libraries. -->
 
-Loading required libraries.
-
-```{r, results="hide",, message=FALSE, warning=FALSE}
+```{r, echo=FALSE,results="hide",, message=FALSE, warning=FALSE}
 library(MASS)
 library(tidyverse)
 library(corrplot)
@@ -122,9 +124,9 @@ library(DALEXtra)
 library(fastshap)
 ```
 
-Loading the data.
+<!-- Loading the data. -->
 
-```{r, results="hide",, message=FALSE, warning=FALSE}
+```{r, echo=FALSE,results="hide", message=FALSE, warning=FALSE}
 # data<-read_csv(file = "database.csv")
 
 # save(data,file="data.R")
@@ -133,19 +135,21 @@ data_org<-data
 
 ```
 
-Let's take an initial glance at the data.
+The structure of the data is as follows. 
 
-```{r}
+```{r,echo=FALSE,results="hide", message=FALSE, warning=FALSE}
 dim(data)
 # View(data)
 summary(data)
+```
+```{r,echo=FALSE}
 str(data)
 ```
 
-Column names have spaces. Let's replace them with "_".
+<!-- Column names have spaces. Let's replace them with "_". -->
 
 
-```{r, echo=TRUE, results="hide"}
+```{r, echo=FALSE, results="hide"}
 temp<-colnames(data)
 
 temp<-gsub(" ","_",temp)
@@ -157,17 +161,17 @@ colnames(data)<-temp
 
 The dataset is for all U.S. states for years 1980-2014. However, we are only interested in a subset of that, namely in results for five states of Louisina,Alabama, Mississipi, Georgia and South Carolina (so-called US Deep South States) in the 1980s decade (1980-1989). These five states were known to be have been rather unfriendly to minorities, especially black minorities in those and previous years. 
 
-```{r}
+```{r,echo=FALSE,results="hide", message=FALSE, warning=FALSE}
 data<-subset(data, data$State %in% c("Louisiana","Alabama","Mississipi", "Georgia","South Carolina") & between(data$Year,1980, 1989))
 
 
 ```
 
 
-Let's check if there are any empty values.
+<!-- Let's check if there are any empty values. -->
 
 
-```{r}
+```{r,echo=FALSE,results="hide", message=FALSE, warning=FALSE}
 
 temp<-sum(sapply(data,function(x) (length(x)==length(data$'Record_ID'))))-ncol(data)
 
@@ -182,10 +186,10 @@ if( temp==0){
 ```
 
 
-Now, let's check if there are any missing values.
+<!-- Now, let's check if there are any missing values. -->
 
 
-```{r}
+```{r,echo=FALSE,results="hide", message=FALSE, warning=FALSE}
 
 temp<-sum(sapply(data,function(x) (is.na(x))))
 
@@ -198,17 +202,17 @@ if( temp==0){
   cat("There are",temp,"missing value(s) in the dataset.")
 }
 ```
-Since there is only 1 missing values in the dataset we can remove it from the data.
+<!-- Since there is only 1 missing values in the dataset we can remove it from the data. -->
 
-```{r}
+```{r,echo=FALSE,results="hide", message=FALSE, warning=FALSE}
 
 data<-data[complete.cases(data),]
 
 ```
 
-Let's remove variables which will not be used in the analysis.
+<!-- Let's remove variables which will not be used in the analysis. -->
 
-```{r}
+```{r,echo=FALSE,results="hide", message=FALSE, warning=FALSE}
 temp<-c("Record_ID" ,"Agency_Code","Agency_Name", "City", "State", "Year","Month","Incident","Record_Source", "Victim_Ethnicity", "Perpetrator_Ethnicity",
      "Crime_Type","Agency_Name","Perpetrator_Count","Perpetrator_Race","Perpetrator_Age","Perpetrator_Sex", "Relationship" )
 
@@ -217,9 +221,9 @@ data<-data[,-(which(colnames(data) %in% temp))]
 
 ```
 
-Let's focus on cases with perpetrators over 18 years old and remove cases with Victim_age equal to 998.
+In my analysis, I will only look at the cases with perpetrators over 18 years old and remove cases with Victim_age mistakenly assigned to 998.
 
-```{r}
+```{r,echo=FALSE,results="hide", message=FALSE, warning=FALSE}
 
 data<-subset(data,Victim_Age>=18 & Victim_Age!=998)
 
@@ -227,28 +231,29 @@ data<-subset(data,Victim_Age>=18 & Victim_Age!=998)
 
 
 
-Let's turn character variables into factor.
+<!-- Let's turn character variables into factor. -->
 
 
-```{r}
+```{r,echo=FALSE,results="hide", message=FALSE, warning=FALSE}
 
 data<-data %>% 
  mutate_if(is.character,as.factor) 
 
 ```
 
-Let's attach the data.
+<!-- Let's attach the data. -->
 
-```{r}
+```{r,echo=FALSE,results="hide", message=FALSE, warning=FALSE}
 attach(data)
 ```
 
 
-# Exploratory Data Analysis
+# **Exploratory Data Analysis**
 
-Let's look at the histogram of only two numerical variables in the dataset.
+Let's look at the histogram of only one continuous variable in the dataset (Victim's Age). However, later on for the purpose of ease of analysis, the single continuous variable was turned into categorical one.
 
-```{r}
+
+```{r,echo=FALSE,results="markup", message=FALSE, warning=FALSE}
 
 data %>% 
   select(Victim_Age, Crime_Solved) %>% 
@@ -257,13 +262,12 @@ data %>%
 
 ```
 
-For ease of analysis, let's now turn numerical variables into categorical ones.
 
-Let's group categorical variables into fewer levels.
+<!-- Let's group categorical variables into fewer levels. -->
 
-# FEATURE ENGINEERING
+<!-- # FEATURE ENGINEERING -->
 
-```{r}
+```{r,echo=FALSE,results="hide", message=FALSE, warning=FALSE}
 
 
 data<-subset(data,subset=Victim_Sex!="Unknown" & Victim_Race!="Unknown")
@@ -299,7 +303,7 @@ data$Victim_Age<-cut(data$Victim_Age,breaks=c(18,30,45,60,75,100), labels = c("1
 Let's look at some distributions of categorical variables.
 
 
-```{r}
+```{r,echo=FALSE,results="markup", message=FALSE, warning=FALSE}
 
 temp<-colnames(data)
 
@@ -322,11 +326,13 @@ print(p)
 
 ```
 
+In our reduced dataset around 80% of crimes were solved. Most victims were male (ca. 75%), black (ca. 65%) and below 45 years of age (ca. 75%). gun was the most common weapon used to commit a crime.
 
 
-Now, take a look at conditional distributions for protected categorical variables, i.e. Victim_Sex,  Victim_Race and Victim_Age. 
 
-```{r}
+Now, let's take a look at conditional distributions for protected categorical variables, i.e. Victim_Sex,  Victim_Race and Victim_Age conditional on whether the crime was solved or not.
+
+```{r,echo=FALSE,results="markup", message=FALSE, warning=FALSE}
 
 
   p<-data %>% 
@@ -345,26 +351,25 @@ print(p)
 
 
   p<-data %>%
-  select(Crime_Solved,Weapon) %>%
-  ggplot(aes(x=Weapon, group=Crime_Solved, y=(..prop..), fill=factor(..x..)))+geom_bar(position ="dodge")+
+  select(Crime_Solved,Victim_Age) %>%
+  ggplot(aes(x=Victim_Age, group=Crime_Solved, y=(..prop..), fill=factor(..x..)))+geom_bar(position ="dodge")+
     facet_grid(~Crime_Solved)+
     geom_text(aes(y=(..prop..),label=scales::percent(round(..prop..,3))),stat="count", vjust=-.5)+
-    scale_y_continuous(labels=scales::percent, limits=c(0,1))+
-    labs(y="Percent", fill=Weapon)+
-    scale_fill_discrete(labels = levels(Weapon))+
+    scale_y_continuous(labels=scales::percent, limits=c(0,0.5))+
+    labs(y="Percent", fill=Victim_Age)+
+    scale_fill_discrete(labels = levels(Victim_Age))+
     theme_bw()+
     theme(axis.text.x = element_text(angle = 90))
 
 
 print(p)
 
-
   p<-data %>% 
   select(Crime_Solved,Victim_Race) %>% 
   ggplot(aes(x=Victim_Race, group=Crime_Solved, y=(..prop..), fill=factor(..x..)))+geom_bar(position ="dodge")+
     facet_grid(~Crime_Solved)+
     geom_text(aes(y=(..prop..),label=scales::percent(round(..prop..,3))),stat="count", vjust=-.5)+
-    scale_y_continuous(labels=scales::percent, limits=c(0,0.6))+
+    scale_y_continuous(labels=scales::percent, limits=c(0,0.9))+
     labs(y="Percent", fill=Victim_Race)+
     scale_fill_discrete(labels = levels(Victim_Race))+
     theme_bw()+
@@ -374,9 +379,12 @@ print(p)
 
 ```
 
-Let's take a look at correlation (association) between categorical variables in the dataset. I will use Thiel's uncertainty coefficient to that end.
+From the first look at conditional distributions of protected variables there is no clear pattern of biases visible for victim's sex and victim's race. The exception is the victim's age variable. It seems like the younger the victim was, the higher was a probability that the crime would be solved. Older victims , i.e. people over 75 years of age constituted nearly 8% of unsolved cases, but only above 3% of solved cases.
 
-```{r}
+
+Let's take a look at correlation (association) between categorical variables in the dataset. I will use Thiel's uncertainty coefficient to that.
+
+```{r,echo=FALSE,results="markup", message=FALSE, warning=FALSE}
 
 cor_df<-matrix(0,nrow=ncol(data), ncol=ncol(data), dimnames=list(colnames(data),colnames(data)))
 
@@ -400,15 +408,25 @@ ggplot(cor_df,aes(x=Var1,y=Var2,fill=value))+geom_tile()+labs(title = "Uncertain
 
 ```
 
-The variables are not correlated.
+The variables do not seem to be correlated.
 
 
 
-# MODELLING
+# **MODELLING**
+
+
+In the modelling part of the analysis I will use three algorithms: 
+
+1. logistic regression
+2. random forest 
+3. support vector mechanism 
+
+
+The algorithm that offers the best results will be the basis of further analysis in terms of explainability and fairness. 
 
 Let's first divide the dataset into training and test sets.
 
-```{r}
+```{r,echo=FALSE,results="hide", message=FALSE, warning=FALSE}
 temp<-sample.split(data$Crime_Solved,SplitRatio = 0.7)
 
 train_set<-subset(data, temp==TRUE)
@@ -418,17 +436,23 @@ test_set<-subset(data, temp==FALSE)
 
 Let's see if proportions of Yes/No in target variable are maintained.
 
-```{r}
+```{r,echo=FALSE,results="markup", message=FALSE, warning=FALSE}
+
+cat("The proportion of cases in the original dataset:")
 round(prop.table(table(data$Crime_Solved)),4)*100
+cat("\n ")
+cat("The proportion of cases in the train set dataset:")
 round(prop.table(table(train_set$Crime_Solved)),4)*100
+cat("\n ")
+cat("The proportion of cases in the test set dataset:")
 round(prop.table(table(test_set$Crime_Solved)),4)*100
 
 ```
 
-Proportions of binary responses of target variable have been maintained in the training and testing sets. Now, we need to deal with high imbalance of the training dataset. To that end, we will apply both oversampling and undersampling methods. This method was found to provide better results than oversampling and/or undersampling on a stand-alone basis.
+Proportions of binary responses of target variable have been maintained in the training and testing sets. Now, I need to deal with high imbalance of the training dataset. To that end, I will apply both oversampling and undersampling methods. This method was found to provide better results than oversampling and/or undersampling on a stand-alone basis.
 
 
-```{r}
+```{r,echo=FALSE,results="markup", message=FALSE, warning=FALSE}
 
 train_set_balanced<-ovun.sample(Crime_Solved~., data=train_set,method="both",p=0.5)
 
@@ -444,7 +468,7 @@ table(train_set_balanced$Crime_Solved)
 
 Let's start predictive modelling. First, logistic regression model will be applied. Let's look at its summary.
 
-```{r}
+```{r,echo=FALSE,results="markup", message=FALSE, warning=FALSE}
 train_set_balanced$Crime_Solved<-ifelse(train_set_balanced$Crime_Solved=="Yes",1,0)
 
 train_set_balanced$Crime_Solved<-factor(train_set_balanced$Crime_Solved, levels=c(0,1))
@@ -455,12 +479,17 @@ summary(model_log)
 
 ```
 
-Some dummy variables are indicated assignificant. Now, let's look at some other diagnostics.
+Some dummy variables are indicated as significant. Now, let's look at some other diagnostics.
 
 
-```{r}
+```{r,echo=FALSE,results="markup", message=FALSE, warning=FALSE}
 
+
+cat("McFadden R-squared for logistic regression is equal to:")
 pR2(model_log)["McFadden"]
+
+cat("\n")
+anova(model_log, test="Chisq")
 
 vars_imp<-varImp(model_log)
 
@@ -470,10 +499,10 @@ vars_imp<-cbind(vars_type,vars_imp)
 
 rownames(vars_imp)<-NULL
 
+cat("\n")
 head(vars_imp[order(vars_imp$Overall,decreasing = TRUE),],10)
 
 
-anova(model_log, test="Chisq")
 
 ```
 
@@ -482,7 +511,7 @@ From the anova analysis, it looks like for the logistic regression model - Weapo
 
 Now, let's try predict values based on a test set data and evaluate confusion matrix and ROC curve.
 
-```{r}
+```{r,echo=FALSE,results="markup", message=FALSE, warning=FALSE}
 
 test_set$Crime_Solved<-ifelse(test_set$Crime_Solved=="Yes",1,0)
 
@@ -497,9 +526,9 @@ roc<-roc(test_set$Crime_Solved~pred_log,plot=TRUE,print.auc=TRUE,col="green",lwd
 
 ```
 
-Let's look at the results of logistic regression modeling with a use of cross-valdiation.
+Let's look at the results of logistic regression modeling with a use of cross-validiation.
 
-```{r}
+```{r,echo=FALSE,results="markup", message=FALSE, warning=FALSE}
 
 ctrl <- trainControl(method = "repeatedcv", number = 10, savePredictions = TRUE)
 mod_log_cv <- train(Crime_Solved~.,  data=train_set_balanced, method="glm", family="binomial",
@@ -516,15 +545,15 @@ roc<-roc(test_set$Crime_Solved~pred_log_cv[,2],plot=TRUE,print.auc=TRUE,col="gre
 
 ```
 
-The results with or without the use of cross-validation are identical.
+The results with or without the use of cross-validation are identical. 
 
 
-Now, let's apply random forest algorithm using randomForest package.
+Now, let's apply random forest algorithm using randomForest package. LEt's investigate confusion matrix and ROC curve.
 
 
 ##Random Forest
 
-```{r}
+```{r,echo=FALSE,results="markup", message=FALSE, warning=FALSE}
 
 model_rf<-randomForest(Crime_Solved~.,data=train_set_balanced, ntree=30 )
 
@@ -541,10 +570,10 @@ model_rf
 
 ```
 
-Let's look at some aditional diagnostics for the random forest model.
+Let's look at some additional diagnostics for the random forest model.
 
 
-```{r}
+```{r,echo=FALSE,results="markup", message=FALSE, warning=FALSE}
 
 obb_error_df<-data.frame(
   Trees=rep(1:nrow(model_rf$err.rate), times=3),
@@ -554,13 +583,7 @@ obb_error_df<-data.frame(
           model_rf$err.rate[,"1"]))
 
 
-ggplot(data=obb_error_df, aes(x=Trees, y=Error))+geom_line(aes(color=Type))+theme_bw()
-
-
-varImp<-importance(model_rf)
-
-varImpPlot(model_rf)
-
+ggplot(data=obb_error_df, aes(x=Trees, y=Error))+geom_line(aes(color=Type))+theme_bw()+labs(main="Random forest out-of-bag error & number of trees")
 
 oob_values<-vector(length=10)
 
@@ -570,16 +593,30 @@ for (i in 1:(ncol(data)-1)){
   
   oob_values[i]<-temp_model_rf$err.rate[nrow(temp_model_rf$err.rate),1]
   
+```
+
+It looks like out-of-bag error rate stabilizes at around 30 trees.
+
+
+```{r,echo=FALSE,results="markup", message=FALSE, warning=FALSE}
+
+varImp<-importance(model_rf)
+
+varImpPlot(model_rf)
+
+
 }
 
 ```
 
+It looks like the most important variable for the random forest algorithm was Weapon and then Agency_Type and Victim_Age.
 
-Now, let us apply support vector mechanism (SVM) algorithm.
+
 
 
 ## SVM
 
+Now, let us apply support vector mechanism (SVM) algorithm.
 
 ```{r}
 
@@ -915,4 +952,3 @@ eq_odds_age[1:2]
 
 
 # SUMMARY
-
