@@ -20,7 +20,7 @@ path_work<-"Z:/moje/moje/studia QPE/przedmioty/II semestr/Responsible ML/projekt
 path_home<-"C:/Users/t420/Desktop/moje/studia QPE UW/przedmioty/II semestr/Responsible ML/projekt/US homocide"
 path_home_2<-"C:/Users/Krzysztof_ASUS/Desktop/moje/studia QPE/przedmioty/II semestr/Responsible Machine Learning/project/US homocide"
 
-location<-1
+location<-2
 
 setwd(switch(location,path_work,path_home,path_home_2))
 
@@ -593,6 +593,7 @@ for (i in 1:(ncol(data)-1)){
   
   oob_values[i]<-temp_model_rf$err.rate[nrow(temp_model_rf$err.rate),1]
   
+}  
 ```
 
 It looks like out-of-bag error rate stabilizes at around 30 trees.
@@ -605,7 +606,7 @@ varImp<-importance(model_rf)
 varImpPlot(model_rf)
 
 
-}
+
 
 ```
 
@@ -616,9 +617,9 @@ It looks like the most important variable for the random forest algorithm was We
 
 ## SVM
 
-Now, let us apply support vector mechanism (SVM) algorithm.
+Now, let us apply support vector mechanism (SVM) algorithm. I will run tunning mechanism in order to find optimal parameters for svm model.
 
-```{r}
+```{recho=FALSE,results="hide", message=FALSE, warning=FALSE}
 
 set.seed(123)
 
@@ -628,15 +629,16 @@ model_svm_tuned<-tune(svm,Crime_Solved~.,data=train_set_balanced,
                       kernel="radial",
                       ranges=list(gamma=2^(0),cost=10^(0)))
 
+cat("The optimal parameters for svm are:")
 model_svm_tuned$best.parameters
 
 ```
 
-Let's use the best parameters found by tuning the svm model.
+<!-- Let's use the best parameters found in the tunning process to evaluate svm. -->
 
 
 
-```{r}
+```{r,echo=FALSE,results="markup", message=FALSE, warning=FALSE}
 
 
 model_svm<-svm(Crime_Solved~.,data=train_set_balanced, kernel="radial",
@@ -650,9 +652,9 @@ summary(model_svm)
 
 ```
 
-Let's predict repsonses based on test set and evaluate confusion matrix.
+Let's predict responses based on test set and evaluate confusion matrix.
 
-```{r}
+```{r, echo=FALSE,results="markup", message=FALSE, warning=FALSE}
 
 pred_svm<-predict(model_svm,newdata=test_set[-2])
 
@@ -668,7 +670,7 @@ SVM performs very similarly to Random forest model. However, Random forest model
 
 
 
-# EXPLAINABILITY  ANALYSIS
+# **EXPLAINABILITY  ANALYSIS**
 
 In the explainability part I will focus on:
 
@@ -686,7 +688,7 @@ In the explainability part I will focus on:
 
 ## VARIABLE IMPORTANCE PLOTS
 
-```{r}
+```{recho=FALSE,results="hide", message=FALSE, warning=FALSE}
 
 explain_rf <- DALEX::explain(model = model_rf,  
                         data = test_set[,-2],
@@ -697,6 +699,8 @@ explain_rf <- DALEX::explain(model = model_rf,
 # loss_root_mean_square(observed = test_set$Crime_Solved, 
 #                    predicted = predict(model_rf, test_set))
                    
+```
+```{r,echo=FALSE,results="markup", message=FALSE, warning=FALSE}
 
 set.seed(123)
 vip_50<-model_parts(explainer = explain_rf, 
@@ -710,18 +714,20 @@ plot(vip_50)
 
 ```
 
+Based on Variable Importance Plots it looks like Agency_Type and Weapon are the most important variables for determining whether a crime was solved or not. Their impact however is not very strong.  
 
 
 ## PARTIAL DEPENDENCE PLOTS
 
 
-```{r}
+```{r,echo=FALSE,results="hide", message=FALSE, warning=FALSE}
 
 explain_rf <- DALEX::explain(model = model_rf,  
                         data = test_set[,-2],
                            y = test_set$Crime_Solved,
                         label="Random Forest")
-
+```
+```{r,echo=FALSE,results="markup", message=FALSE, warning=FALSE}
 
 pdp_fun<-function(x){
   
@@ -747,11 +753,13 @@ print(plot(pdp_fun(col_n[i])))
 
 ```
 
+Partial dependence plots show that there are considerable differences in expected model predictions (average probabilities) as to whether a crime was solved or not. For example, in some Victim_Age categories average probability of solving a crime was much higher than in other (for age category 45-60 average prediction was three times higher than for 75+ category). Similarly, when looking at the second protected variable, i.e. Victim_Sex, average probability of solving a crime for female was nearly twice as high as for male. In the case, of the third protected variable, i.e. Victim_Race there does not seem to be a considerable difference between races. 
 
+In addition, partial dependence plots confirm also what was already indicated by variable importance plots, i.e. that there are substantial differences between average probabilities of solving a crime depending on the type of agency running an investigation and the weapon used in a crime.
 
 ##LIME
 
-```{r}
+```{r,echo=FALSE,results="markup", message=FALSE, warning=FALSE}
 
 model_rf<-as_classifier(model_rf, labels = NULL)
 
@@ -768,7 +776,7 @@ d_test<-subset(test_set,test_set$Victim_Race=="Black"& test_set$Victim_Age=="75+
 explanation <- lime::explain(d_test[c(3:4,(nrow(d_test)-1):nrow(d_test)),-2], explainer,n_labels=1, n_features = 6, n_permutations=100)
 
 
-explanation
+# explanation
 
 
 plot_features(explanation)
@@ -776,11 +784,23 @@ plot_features(explanation)
 
 ```
 
+For the Lime analysis I have chosen four instances of the same combination of variables, i.e.:
+1. person was black,
+2. over 75 years old,
+3. weapon was gun,
+4. investigation was carried out by the Sheriif,
+5. he was a male
+
+It looks like the results are rather stable. For each instance the fact that the investigation was executed by the Sheriff increased probability of solving the crime ( in three instances it was the most important variable). On contrary, the fact that a victim was male, reduced the expected probability of solving the crime (second most important variable in three instances). 
+The fact that a person was black had little influence on the expected probability. However, what is rather unexpected, given the results of variable importance plots and partial dependence plots is the fact that the persons were over 75 years old also had little impact on the expected probability.
+
+
+
 ## SHAPLEY VALUES
 
 Now, let's look at an alternative approach, i.e. so-called Shapley values.
 
-```{r}
+```{r,echo=FALSE,results="hide", message=FALSE, warning=FALSE}
 
 explain_rf <- DALEX::explain(model = model_rf,  
                         data = test_set[,-2],
@@ -797,19 +817,24 @@ shap <- predict_parts(explainer = explain_rf,
 
 shap
 
+```
+```{r,echo=FALSE,results="markup", message=FALSE, warning=FALSE}
+
 plot(shap)
 
 ```
 
+For the SHAP values analysis, I took Case 1 from LIME analysis in order to ensure that SHAP values analysis could be compared to LIME results. As evidenced by the plot, the fact that the Sheriff conducted this investigation had a positive impact on the probability of solving the crime. In opposition to LIME however, SHAP values identified much bigger influence of the victim's age category on the expected probability. The fact that the person was black increased his chances of solving the crime. The remaining 
 
-Now, let's turn to fairness analysis. Here I will use four metrics:
+# **FAIRNESS ANALYSIS**
+
+Now, let's turn to fairness analysis. Here I will use three metrics:
 
 1. Predictive rate parity
-2. Demographic parity
-3. Proportional parity
-4. Equalized odds
+2. Proportional parity
+3. Equalized odds
 
-At the stage of explanatory model analysis, I identyfied three potential protected variables, i.e.:
+At the stage of explanatory model analysis, I identified three potential protected variables, i.e.:
 
 1.	Victim’s Sex
 2.	Victim’s Race
@@ -817,13 +842,13 @@ At the stage of explanatory model analysis, I identyfied three potential protect
 
 However, in all models applied, and in the Random Forest in particular Victim's Race does not seem to be a significant variable, which indicates that racial profiling did not have much weight on crime investigations. In turn, out of the three protected variables, Victim's Age seems most significant, followed by Victim's Sex. Thus, in the subsequent fairness analysis I will only focus on these two protected variables.
 
-# FAIRNESS ANALYSIS
+
 
 ## PREDICTIVE RATE PARITY
 
-Before looking at predictive rate parity, let's first look at the densities of predicted probabilites for different subgroups of Victim's Age and Victim's Sex in the dataset.
+Before looking at predictive rate parity, let's first look at the densities of predicted probabilities for different subgroups of Victim's Age and Victim's Sex in the dataset.
 
-```{r}
+```{r,echo=FALSE,results="markup", message=FALSE, warning=FALSE}
 
 test_set_fair<-cbind(test_set,pred_rf)
 
@@ -856,49 +881,55 @@ prp_age[3]
 
 ```
 
+The two plots confirm the results of previous analyses. If a victim was a female the crime was much more likely to be solved rather than when a victim was a male. By the same token, average probabilities of solving a crime were different for different victim's age subgroups, with especially older people being here at disadvantage.
+
+
 Now, let's see predictive rate parity results.
 
 
-```{r}
+```{r,echo=FALSE,results="markup", message=FALSE, warning=FALSE}
 prp_sex[1:2]
 prp_age[1:2]
 
 
 ```
 
-## DEMOGRAPHIC PARITY
+Predictive rate parity does not show considerable differences given victim's sex and victim's age. Precision of the model ( TP/ (TP +FP) in the confusion matrix ) is basically the same for all instances of these two variables.
 
 
-```{r}
+<!-- ## DEMOGRAPHIC PARITY -->
 
 
-dem_par_sex <- dem_parity(data     = test_set_fair, 
-                      outcome      = 'Crime_Solved',
-                      outcome_base = '0', 
-                      group        = 'Victim_Sex',
-                      probs        = 'probs_1',
-                      base         = "Female")
-dem_par_sex[1:2]
+<!-- ```{r} -->
+
+
+<!-- dem_par_sex <- dem_parity(data     = test_set_fair,  -->
+<!--                       outcome      = 'Crime_Solved', -->
+<!--                       outcome_base = '0',  -->
+<!--                       group        = 'Victim_Sex', -->
+<!--                       probs        = 'probs_1', -->
+<!--                       base         = "Female") -->
+<!-- dem_par_sex[1:2] -->
 
 
 
-dem_par_age <- dem_parity(data     = test_set_fair, 
-                      outcome      = 'Crime_Solved',
-                      outcome_base = '0', 
-                      group        = 'Victim_Age',
-                      probs        = 'probs_1',
-                      base         = "30-45")
-dem_par_age[1:2]
+<!-- dem_par_age <- dem_parity(data     = test_set_fair,  -->
+<!--                       outcome      = 'Crime_Solved', -->
+<!--                       outcome_base = '0',  -->
+<!--                       group        = 'Victim_Age', -->
+<!--                       probs        = 'probs_1', -->
+<!--                       base         = "30-45") -->
+<!-- dem_par_age[1:2] -->
 
 
-"Formula: (TP + FP) - absolute number of all positively classified individuals in all subgroups"
+<!-- "Formula: (TP + FP) - absolute number of all positively classified individuals in all subgroups" -->
 
-```
+<!-- ``` -->
 
 
 ## PROPORTIONAL PARITY
 
-```{r}
+```{r,echo=FALSE,results="markup", message=FALSE, warning=FALSE}
 
 prop_par_sex <- prop_parity(data     = test_set_fair, 
                       outcome      = 'Crime_Solved',
@@ -921,11 +952,11 @@ prop_par_age[1:2]
 
 ```
 
-
+Proportional parity plot shows the proportion of all positively classified individuals in a given subgroup (positively classified means in this case that a crime was expected to be solved). In the cases of my analysis, the plots show that male had much smaller chances of their crimes to be solved. The same was true for older people, i.e. in age group categories 60-75 and particulary 75+.
 
 ## EQUALIZED ODDS
 
-```{r}
+```{r,echo=FALSE,results="markup", message=FALSE, warning=FALSE}
 
 eq_odds_sex <- equal_odds(data     = test_set_fair, 
                       outcome      = 'Crime_Solved',
@@ -949,6 +980,16 @@ eq_odds_age[1:2]
 "Formula: TP / (TP + FN) - sensitivity"
 
 ```
+Equalized odds is basically how many true positive cases were correctly identified as a ratio of true positive cases and false negative cases. Equalized odds metrics confirm the proportional parity results. Males and older age groups were at disadvantage when it came to the expected chances of solving their crimes (i.e. crimes where they were victims).
+
 
 
 # SUMMARY
+
+The results of the analysis indicate that indeed a bias was to be observed as to whether a crime was solved or not. To the contrary of my expectation, the results do not provide any evidence of bias against race. In the end, the dataset was reduced to contain five "deep south" states, which were not known for their sympathy for ethnic minorities, especially in the 1980s decade. 
+
+Interestingly, the outcome of the analysis is an evidence of bias towards male and older people. These two social groups in multiple metrics are shown to be at considerable disadvantage when it comes to expected probabilites of solving crimes were these two subgroups were victims.
+
+
+
+
