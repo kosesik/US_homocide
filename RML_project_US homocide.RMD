@@ -27,9 +27,9 @@ setwd(switch(location,path_work,path_home,path_home_2))
 rm(list=ls())
 ```
 
-# **Introduction**
+# **1. Introduction**
 
-## Problem Context
+## 1.1 Problem Context
 
 The Murder Accountability Project is the most complete database of homicides in the United States currently available. This dataset includes murders from the FBI's Supplementary Homicide Report from 1976 to the present. 
 
@@ -38,14 +38,14 @@ Dataset comes from Kaggle (https://www.kaggle.com/murderaccountability/homicide-
 The dataset consists of nearly 640,000 crime cases. They are described by 24 variables, for example City, State, Year, Crime Type, Victim's Age, Perpetrator's Age and Weapon Used. 
 
 
-## Stakeholder
+## 1.2 Stakeholder
 
 A stakeholder could be associated with a public authority aiming at ensuring that – in a case of a murder – identical effort is put into investigation with no regard for the victim’s race, sex or age. As a result similar crimes should be solved (alternatively not solved) independent of the victim’s race, sex  and age. 
 
 The stakeholder is thus interested in evaluating the model’s general performance.  Their goal is to analyze whether there is some bias in police investigations towards certain social groups, which effectively results in a lower rate of solved crimes for those groups. 
 
 
-## Objectives
+## 1.3 Objectives
 
 The goal of the analysis is to determine whether fairness of the model is maintained. To that end, I analyze whether identified protected variables affect the outcome of the crime investigation. In the dataset victim's age, race and sex were identified as protected variables and whether a crime was solved or not was identified as target variable. In addition, explainability analysis was also conducted.
 
@@ -57,7 +57,7 @@ To sum up, the following are the objectives of the project:
 4) Assessment of model's fairness
 
 
-## Data
+## 1.4 Data
 
 The dataset consists of nearly 640,000 crime cases. They are described by 24 variables, for example City, State, Year, Crime Type, Victim's Age, Perpetrator's Age and Weapon Used. 
 
@@ -248,7 +248,7 @@ attach(data)
 ```
 
 
-# **Exploratory Data Analysis**
+# **2. Exploratory Data Analysis**
 
 Let's look at the histogram of only one continuous variable in the dataset (Victim's Age). However, later on for the purpose of ease of analysis, the single continuous variable was turned into categorical one.
 
@@ -359,7 +359,8 @@ print(p)
     labs(y="Percent", fill=Victim_Age)+
     scale_fill_discrete(labels = levels(Victim_Age))+
     theme_bw()+
-    theme(axis.text.x = element_text(angle = 90))
+    theme(axis.text.x = element_text(angle = 90))+
+    theme(legend.position = "none")
 
 
 print(p)
@@ -412,7 +413,7 @@ The variables do not seem to be correlated.
 
 
 
-# **MODELLING**
+# **3. MODELLING**
 
 
 In the modelling part of the analysis I will use three algorithms: 
@@ -464,7 +465,7 @@ table(train_set_balanced$Crime_Solved)
 ```
 
 
-## LOGISTIC REGRESSION
+## 3.1 LOGISTIC REGRESSION
 
 Let's start predictive modelling. First, logistic regression model will be applied. Let's look at its summary.
 
@@ -485,29 +486,29 @@ Some dummy variables are indicated as significant. Now, let's look at some other
 ```{r,echo=FALSE,results="markup", message=FALSE, warning=FALSE}
 
 
-cat("McFadden R-squared for logistic regression is equal to:")
-pR2(model_log)["McFadden"]
-
-cat("\n")
+# cat("McFadden R-squared for logistic regression is equal to:")
+# pR2(model_log)["McFadden"]
+# 
+# cat("\n")
 anova(model_log, test="Chisq")
 
-vars_imp<-varImp(model_log)
-
-vars_type<-rownames(vars_imp)
-
-vars_imp<-cbind(vars_type,vars_imp)
-
-rownames(vars_imp)<-NULL
-
-cat("\n")
-head(vars_imp[order(vars_imp$Overall,decreasing = TRUE),],10)
+# vars_imp<-varImp(model_log)
+# 
+# vars_type<-rownames(vars_imp)
+# 
+# vars_imp<-cbind(vars_type,vars_imp)
+# 
+# rownames(vars_imp)<-NULL
+# 
+# cat("\n")
+# head(vars_imp[order(vars_imp$Overall,decreasing = TRUE),],10)
 
 
 
 ```
 
 
-From the anova analysis, it looks like for the logistic regression model - Weapon, Agency Type and Victim's Age are the most important explanatory variables. 
+From the anova analysis, it looks like for the logistic regression model - Weapon, Agency Type and Victim's Age are the most important explanatory variables (largest deviances). 
 
 Now, let's try predict values based on a test set data and evaluate confusion matrix and ROC curve.
 
@@ -548,10 +549,9 @@ roc<-roc(test_set$Crime_Solved~pred_log_cv[,2],plot=TRUE,print.auc=TRUE,col="gre
 The results with or without the use of cross-validation are identical. 
 
 
+## 3.2 RANDOM FOREST
+
 Now, let's apply random forest algorithm using randomForest package. LEt's investigate confusion matrix and ROC curve.
-
-
-##Random Forest
 
 ```{r,echo=FALSE,results="markup", message=FALSE, warning=FALSE}
 
@@ -566,7 +566,7 @@ confusionMatrix(as.factor(pred_rf_bin),as.factor(test_set$Crime_Solved))
 roc<-roc(test_set$Crime_Solved~pred_rf[,2],plot=TRUE,print.auc=TRUE,col="green",lwd =4,legacy.axes=TRUE,main="ROC Curve - Random Forest")
 
 
-model_rf
+# model_rf
 
 ```
 
@@ -615,11 +615,11 @@ It looks like the most important variable for the random forest algorithm was We
 
 
 
-## SVM
+## 3.3 SVM
 
 Now, let us apply support vector mechanism (SVM) algorithm. I will run tunning mechanism in order to find optimal parameters for svm model.
 
-```{recho=FALSE,results="hide", message=FALSE, warning=FALSE}
+```{r,echo=FALSE,results="hide", message=FALSE, warning=FALSE}
 
 set.seed(123)
 
@@ -638,7 +638,7 @@ model_svm_tuned$best.parameters
 
 
 
-```{r,echo=FALSE,results="markup", message=FALSE, warning=FALSE}
+```{r,echo=FALSE,results="hide", message=FALSE, warning=FALSE}
 
 
 model_svm<-svm(Crime_Solved~.,data=train_set_balanced, kernel="radial",
@@ -670,7 +670,7 @@ SVM performs very similarly to Random forest model. However, Random forest model
 
 
 
-# **EXPLAINABILITY  ANALYSIS**
+# **4. EXPLAINABILITY  ANALYSIS**
 
 In the explainability part I will focus on:
 
@@ -686,9 +686,9 @@ In the explainability part I will focus on:
 
 
 
-## VARIABLE IMPORTANCE PLOTS
+## 4.1 VARIABLE IMPORTANCE PLOTS
 
-```{recho=FALSE,results="hide", message=FALSE, warning=FALSE}
+```{r,echo=FALSE,results="hide", message=FALSE, warning=FALSE}
 
 explain_rf <- DALEX::explain(model = model_rf,  
                         data = test_set[,-2],
@@ -696,10 +696,11 @@ explain_rf <- DALEX::explain(model = model_rf,
                         label="Random Forest")
 
 
-# loss_root_mean_square(observed = test_set$Crime_Solved, 
-#                    predicted = predict(model_rf, test_set))
+loss_root_mean_square(observed = test_set$Crime_Solved,
+                   predicted = predict(model_rf, test_set))
                    
 ```
+
 ```{r,echo=FALSE,results="markup", message=FALSE, warning=FALSE}
 
 set.seed(123)
@@ -717,7 +718,7 @@ plot(vip_50)
 Based on Variable Importance Plots it looks like Agency_Type and Weapon are the most important variables for determining whether a crime was solved or not. Their impact however is not very strong.  
 
 
-## PARTIAL DEPENDENCE PLOTS
+## 4.2 PARTIAL DEPENDENCE PLOTS
 
 
 ```{r,echo=FALSE,results="hide", message=FALSE, warning=FALSE}
@@ -757,7 +758,7 @@ Partial dependence plots show that there are considerable differences in expecte
 
 In addition, partial dependence plots confirm also what was already indicated by variable importance plots, i.e. that there are substantial differences between average probabilities of solving a crime depending on the type of agency running an investigation and the weapon used in a crime.
 
-##LIME
+## 4.3 LIME
 
 ```{r,echo=FALSE,results="markup", message=FALSE, warning=FALSE}
 
@@ -796,7 +797,7 @@ The fact that a person was black had little influence on the expected probabilit
 
 
 
-## SHAPLEY VALUES
+## 4.4 SHAPLEY VALUES
 
 Now, let's look at an alternative approach, i.e. so-called Shapley values.
 
@@ -826,7 +827,7 @@ plot(shap)
 
 For the SHAP values analysis, I took Case 1 from LIME analysis in order to ensure that SHAP values analysis could be compared to LIME results. As evidenced by the plot, the fact that the Sheriff conducted this investigation had a positive impact on the probability of solving the crime. In opposition to LIME however, SHAP values identified much bigger influence of the victim's age category on the expected probability. The fact that the person was black increased his chances of solving the crime. The remaining 
 
-# **FAIRNESS ANALYSIS**
+# **5. FAIRNESS ANALYSIS**
 
 Now, let's turn to fairness analysis. Here I will use three metrics:
 
@@ -844,7 +845,7 @@ However, in all models applied, and in the Random Forest in particular Victim's 
 
 
 
-## PREDICTIVE RATE PARITY
+## 5.1 PREDICTIVE RATE PARITY
 
 Before looking at predictive rate parity, let's first look at the densities of predicted probabilities for different subgroups of Victim's Age and Victim's Sex in the dataset.
 
@@ -877,7 +878,7 @@ prp_age <- pred_rate_parity(data         = test_set_fair,
 prp_sex[3]
 prp_age[3]
 
-"Formula: TP / (TP + FP) - precision"
+# "Formula: TP / (TP + FP) - precision"
 
 ```
 
@@ -888,8 +889,8 @@ Now, let's see predictive rate parity results.
 
 
 ```{r,echo=FALSE,results="markup", message=FALSE, warning=FALSE}
-prp_sex[1:2]
-prp_age[1:2]
+prp_sex[2]
+prp_age[2]
 
 
 ```
@@ -927,7 +928,7 @@ Predictive rate parity does not show considerable differences given victim's sex
 <!-- ``` -->
 
 
-## PROPORTIONAL PARITY
+## 5.2 PROPORTIONAL PARITY
 
 ```{r,echo=FALSE,results="markup", message=FALSE, warning=FALSE}
 
@@ -937,7 +938,7 @@ prop_par_sex <- prop_parity(data     = test_set_fair,
                       group        = 'Victim_Sex',
                       probs        = 'probs_1',
                       base         = "Female")
-prop_par_sex[1:2]
+prop_par_sex[2]
 
 
 prop_par_age <- prop_parity(data     = test_set_fair, 
@@ -946,15 +947,15 @@ prop_par_age <- prop_parity(data     = test_set_fair,
                       group        = 'Victim_Age',
                       probs        = 'probs_1',
                       base         = "30-45")
-prop_par_age[1:2]
+prop_par_age[2]
 
-"Formula: (TP + FP) / (TP + FP + TN + FN) - proportion of all positively classified individuals in all subgroups"
+# "Formula: (TP + FP) / (TP + FP + TN + FN) - proportion of all positively classified individuals in all subgroups"
 
 ```
 
 Proportional parity plot shows the proportion of all positively classified individuals in a given subgroup (positively classified means in this case that a crime was expected to be solved). In the cases of my analysis, the plots show that male had much smaller chances of their crimes to be solved. The same was true for older people, i.e. in age group categories 60-75 and particulary 75+.
 
-## EQUALIZED ODDS
+## 5.3 EQUALIZED ODDS
 
 ```{r,echo=FALSE,results="markup", message=FALSE, warning=FALSE}
 
@@ -964,7 +965,7 @@ eq_odds_sex <- equal_odds(data     = test_set_fair,
                       group        = 'Victim_Sex',
                       probs        = 'probs_1',
                       base         = "Female")
-eq_odds_sex[1:2]
+eq_odds_sex[2]
 
 
 
@@ -975,16 +976,16 @@ eq_odds_age <- equal_odds(data     = test_set_fair,
                       probs        = 'probs_1',
                       base         = "30-45")
 
-eq_odds_age[1:2]
+eq_odds_age[2]
 
-"Formula: TP / (TP + FN) - sensitivity"
+# "Formula: TP / (TP + FN) - sensitivity"
 
 ```
 Equalized odds is basically how many true positive cases were correctly identified as a ratio of true positive cases and false negative cases. Equalized odds metrics confirm the proportional parity results. Males and older age groups were at disadvantage when it came to the expected chances of solving their crimes (i.e. crimes where they were victims).
 
 
 
-# SUMMARY
+# **6. SUMMARY**
 
 The results of the analysis indicate that indeed a bias was to be observed as to whether a crime was solved or not. To the contrary of my expectation, the results do not provide any evidence of bias against race. In the end, the dataset was reduced to contain five "deep south" states, which were not known for their sympathy for ethnic minorities, especially in the 1980s decade. 
 
