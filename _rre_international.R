@@ -22,6 +22,7 @@ package.check <- lapply(
   }
 )
 
+# tu coœ nowego
 stworz_date <- function(x) {
   
   okres=case_when(substr(x,6,7)=="Q1" ~ lubridate::make_date(as.numeric(substr(x,1,4)),3,31),
